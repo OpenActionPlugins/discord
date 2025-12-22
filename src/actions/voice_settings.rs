@@ -89,3 +89,42 @@ impl Action for ToggleDeafenAction {
 		.await
 	}
 }
+
+pub struct PushToMuteAction;
+#[async_trait]
+impl Action for PushToMuteAction {
+	const UUID: ActionUuid = "me.amankhanna.oadiscord.pushtomute";
+	type Settings = HashMap<String, String>;
+
+	async fn key_down(
+		&self,
+		instance: &Instance,
+		_settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		update_voice_setting(
+			instance,
+			SetVoiceSettingsArgs {
+				mute: Some(true),
+				..Default::default()
+			},
+			1,
+		)
+		.await
+	}
+
+	async fn key_up(
+		&self,
+		instance: &Instance,
+		_settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		update_voice_setting(
+			instance,
+			SetVoiceSettingsArgs {
+				mute: Some(false),
+				..Default::default()
+			},
+			0,
+		)
+		.await
+	}
+}

@@ -6,3 +6,4 @@ An OpenAction ([OpenDeck](https://github.com/nekename/OpenDeck) / [Tacto](https:
 
 - Toggle Mute
 - Toggle Deafen
+- Push to Mute
