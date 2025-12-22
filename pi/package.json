@@ -1,0 +1,30 @@
+{
+	"name": "oadiscord-pi",
+	"type": "module",
+	"scripts": {
+		"build": "vite build",
+		"format": "prettier --write .",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-static": "^3.0",
+		"@sveltejs/kit": "^2.49",
+		"@sveltejs/vite-plugin-svelte": "^6.2",
+		"@tailwindcss/vite": "^4.1",
+		"prettier": "^3.7",
+		"prettier-plugin-svelte": "^3.4",
+		"prettier-plugin-tailwindcss": "^0.7",
+		"svelte": "^5.46",
+		"svelte-check": "^4.3",
+		"tailwindcss": "^4.1",
+		"typescript": "^5.9",
+		"vite": "^7.3"
+	},
+	"prettier": {
+		"useTabs": true,
+		"plugins": [
+			"prettier-plugin-svelte",
+			"prettier-plugin-tailwindcss"
+		]
+	}
+}
