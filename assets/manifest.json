@@ -35,6 +35,16 @@
 			"PropertyInspectorPath": "pi/simple.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/deafen_0" }, { "Image": "actions/deafen_1" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.pushtomute",
+			"Name": "Push to Mute",
+			"Icon": "actions/pushtomute_0",
+			"Tooltip": "Mute and unmute yourself by holding down a key",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/simple.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/pushtomute_0" }, { "Image": "actions/pushtomute_1" }]
 		}
 	]
 }

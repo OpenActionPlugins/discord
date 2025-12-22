@@ -88,6 +88,7 @@ async fn main() -> OpenActionResult<()> {
 	global_events::set_global_event_handler(&GlobalEventHandler);
 	register_action(ToggleMuteAction).await;
 	register_action(ToggleDeafenAction).await;
+	register_action(PushToMuteAction).await;
 
 	run(std::env::args().collect()).await
 }
