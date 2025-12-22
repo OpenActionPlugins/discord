@@ -1,0 +1,40 @@
+{
+	"Name": "Discord",
+	"Author": "nekename",
+	"Version": "0.1.0",
+	"Category": "Discord",
+	"Icon": "icon",
+	"OS": [{ "Platform": "windows" }, { "Platform": "mac" }, { "Platform": "linux" }],
+	"CodePaths": {
+		"x86_64-pc-windows-msvc": "oadiscord-x86_64-pc-windows-msvc.exe",
+		"x86_64-apple-darwin": "oadiscord-x86_64-apple-darwin",
+		"aarch64-apple-darwin": "oadiscord-aarch64-apple-darwin",
+		"x86_64-unknown-linux-gnu": "oadiscord-x86_64-unknown-linux-gnu",
+		"aarch64-unknown-linux-gnu": "oadiscord-aarch64-unknown-linux-gnu"
+	},
+	"CodePathWin": "oadiscord-x86_64-pc-windows-msvc.exe",
+	"CodePathMac": "oadiscord-x86_64-apple-darwin",
+	"CodePathLin": "oadiscord-x86_64-unknown-linux-gnu",
+	"Actions": [
+		{
+			"UUID": "me.amankhanna.oadiscord.togglemute",
+			"Name": "Toggle Mute",
+			"Icon": "actions/mute_0",
+			"Tooltip": "Mute and unmute yourself",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/simple.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/mute_0" }, { "Image": "actions/mute_1" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.toggledeafen",
+			"Name": "Toggle Deafen",
+			"Icon": "actions/deafen_0",
+			"Tooltip": "Deafen and undeafen yourself",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/simple.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/deafen_0" }, { "Image": "actions/deafen_1" }]
+		}
+	]
+}
