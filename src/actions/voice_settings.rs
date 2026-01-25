@@ -148,7 +148,7 @@ impl Action for PushToTalkAction {
 			},
 			1,
 		)
-			.await
+		.await
 	}
 
 	async fn key_up(
@@ -164,6 +164,6 @@ impl Action for PushToTalkAction {
 			},
 			0,
 		)
-			.await
+		.await
 	}
 }
