@@ -50,7 +50,7 @@
 			"UUID": "me.amankhanna.oadiscord.pushtotalk",
 			"Name": "Push to Talk",
 			"Icon": "actions/pushtotalk_0",
-			"Tooltip": "Mute and unmute yourself by holding down a key",
+			"Tooltip": "Unmute and mute yourself by holding down a key",
 			"Controllers": ["Keypad"],
 			"PropertyInspectorPath": "pi/simple.html",
 			"DisableAutomaticStates": true,
