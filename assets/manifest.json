@@ -45,6 +45,16 @@
 			"PropertyInspectorPath": "pi/simple.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/pushtomute_0" }, { "Image": "actions/pushtomute_1" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.pushtotalk",
+			"Name": "Push to Talk",
+			"Icon": "actions/pushtotalk_0",
+			"Tooltip": "Unmute and mute yourself by holding down a key",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/simple.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/pushtotalk_0" }, { "Image": "actions/pushtotalk_1" }]
 		}
 	]
 }
