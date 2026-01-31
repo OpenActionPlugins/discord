@@ -44,6 +44,7 @@
 			"Controllers": ["Keypad"],
 			"PropertyInspectorPath": "pi/simple.html",
 			"DisableAutomaticStates": true,
+			"SupportedInMultiActions": false,
 			"States": [{ "Image": "actions/pushtomute_0" }, { "Image": "actions/pushtomute_1" }]
 		},
 		{
@@ -54,6 +55,7 @@
 			"Controllers": ["Keypad"],
 			"PropertyInspectorPath": "pi/simple.html",
 			"DisableAutomaticStates": true,
+			"SupportedInMultiActions": false,
 			"States": [{ "Image": "actions/pushtotalk_0" }, { "Image": "actions/pushtotalk_1" }]
 		}
 	]
