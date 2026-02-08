@@ -1,7 +1,7 @@
 {
 	"Name": "Discord",
 	"Author": "nekename",
-	"Version": "0.1.1",
+	"Version": "0.2.0",
 	"Category": "Discord",
 	"Icon": "icon",
 	"OS": [{ "Platform": "windows" }, { "Platform": "mac" }, { "Platform": "linux" }],
