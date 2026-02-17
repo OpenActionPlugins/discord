@@ -40,17 +40,26 @@ fn reconnecting_flag() -> &'static AtomicBool {
 }
 
 // Attempts to reinitialize the Discord IPC client using the stored settings.
-async fn reinitialize() {
+async fn reinitialize() -> bool {
+	{
+		let client_lock = discord_client().read().await;
+		if client_lock.is_some() {
+			return true; 
+		}
+	}
+
 	let settings = current_settings().read().await.clone();
 	match create_discord_client(&settings).await {
 		Ok(client) => {
 			*discord_client().write().await = Some(client);
 			reconnecting_flag().store(false, Ordering::SeqCst);
+			true
 		}
 		Err(e) => {
 			*discord_client().write().await = None;
 			log::error!("Failed to reinitialize client: {}", e);
 			update_error(&e).await;
+			false
 		}
 	}
 }
@@ -63,9 +72,14 @@ pub(crate) fn schedule_reconnect() {
 	}
 
 	tokio::spawn(async move {
+		sleep(Duration::from_secs(2)).await; 
+
 		while flag.load(Ordering::SeqCst) {
-			reinitialize().await;
-			sleep(Duration::from_secs(5)).await;
+			if reinitialize().await {
+				flag.store(false, Ordering::SeqCst);
+				break;
+			}
+			sleep(Duration::from_secs(10)).await; 
 		}
 	});
 }
