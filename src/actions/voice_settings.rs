@@ -1,48 +1,35 @@
-use crate::client::discord_client;
+use crate::actions::PluginActionSettings;
+use crate::client::{request_voice_settings, set_voice_settings, set_voice_settings_json, update_error};
 
-use std::collections::HashMap;
 use std::sync::atomic::Ordering::Relaxed;
 
-use discord_ipc_rust::models::send::commands::{SentCommand, SetVoiceSettingsArgs};
+use discord_ipc_rust::models::send::commands::SetVoiceSettingsArgs;
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
+use serde_json::json;
 
-// Centralize the voice settings RPC call and Stream Deck feedback logic.
+async fn fail(instance: &Instance, message: &str) -> OpenActionResult<()> {
+	log::error!("{}", message);
+	update_error(message).await;
+	instance.show_alert().await?;
+	Ok(())
+}
+
 async fn update_voice_setting(
 	instance: &Instance,
 	args: SetVoiceSettingsArgs,
 	next_state: usize,
 ) -> OpenActionResult<()> {
-	// Take the shared IPC client so we can send the voice update command.
-	let mut client_lock = discord_client().write().await;
-	let Some(client) = client_lock.as_mut() else {
-		log::error!("Discord client not initialized");
-		instance.show_alert().await?;
-		return Ok(());
-	};
-
-	// Send the RPC and update the Stream Deck feedback depending on the result.
-	match client
-		.emit_command(&SentCommand::SetVoiceSettings(args))
-		.await
-	{
-		Ok(_) => {
-			// Reflect the new voice state on the button.
-			instance.set_state(next_state as u16).await?;
-		}
-		Err(e) => {
-			log::error!("Failed to update voice state: {}", e);
-			instance.show_alert().await?;
-		}
+	match set_voice_settings(args).await {
+		Ok(_) => instance.set_state(next_state as u16).await,
+		Err(error) => fail(instance, &error).await,
 	}
-
-	Ok(())
 }
 
 pub struct ToggleMuteAction;
 #[async_trait]
 impl Action for ToggleMuteAction {
 	const UUID: ActionUuid = "me.amankhanna.oadiscord.togglemute";
-	type Settings = HashMap<String, String>;
+	type Settings = PluginActionSettings;
 
 	async fn key_up(
 		&self,
@@ -68,7 +55,7 @@ pub struct ToggleDeafenAction;
 #[async_trait]
 impl Action for ToggleDeafenAction {
 	const UUID: ActionUuid = "me.amankhanna.oadiscord.toggledeafen";
-	type Settings = HashMap<String, String>;
+	type Settings = PluginActionSettings;
 
 	async fn key_up(
 		&self,
@@ -94,7 +81,7 @@ pub struct PushToMuteAction;
 #[async_trait]
 impl Action for PushToMuteAction {
 	const UUID: ActionUuid = "me.amankhanna.oadiscord.pushtomute";
-	type Settings = HashMap<String, String>;
+	type Settings = PluginActionSettings;
 
 	async fn key_down(
 		&self,
@@ -133,7 +120,7 @@ pub struct PushToTalkAction;
 #[async_trait]
 impl Action for PushToTalkAction {
 	const UUID: ActionUuid = "me.amankhanna.oadiscord.pushtotalk";
-	type Settings = HashMap<String, String>;
+	type Settings = PluginActionSettings;
 
 	async fn key_down(
 		&self,
@@ -165,5 +152,64 @@ impl Action for PushToTalkAction {
 			0,
 		)
 		.await
+	}
+}
+
+pub struct ToggleVoiceModeAction;
+#[async_trait]
+impl Action for ToggleVoiceModeAction {
+	const UUID: ActionUuid = "me.amankhanna.oadiscord.togglevoicemode";
+	type Settings = PluginActionSettings;
+
+	async fn key_up(
+		&self,
+		instance: &Instance,
+		_settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		let voice = match request_voice_settings().await {
+			Ok(voice) => voice,
+			Err(error) => return fail(instance, &error).await,
+		};
+
+		let Some(mode) = voice.mode else {
+			return fail(
+				instance,
+				"Discord did not return voice mode details, so Toggle Voice Mode is unavailable",
+			)
+			.await;
+		};
+
+		let next_mode_type = match mode.mode_type.as_str() {
+			"VOICE_ACTIVITY" => "PUSH_TO_TALK",
+			"PUSH_TO_TALK" => "VOICE_ACTIVITY",
+			other => {
+				return fail(
+					instance,
+					&format!("Unsupported Discord voice mode \"{other}\""),
+				)
+				.await;
+			}
+		};
+
+		match set_voice_settings_json(json!({
+			"mode": {
+				"type": next_mode_type,
+				"auto_threshold": mode.auto_threshold,
+				"threshold": mode.threshold,
+				"delay": mode.delay
+			}
+		}))
+		.await
+		{
+			Ok(updated) => {
+				let state = updated
+					.mode
+					.as_ref()
+					.map(|value| value.mode_type.as_str() == "PUSH_TO_TALK")
+					.unwrap_or(next_mode_type == "PUSH_TO_TALK");
+				instance.set_state(if state { 1 } else { 0 }).await
+			}
+			Err(error) => fail(instance, &error).await,
+		}
 	}
 }

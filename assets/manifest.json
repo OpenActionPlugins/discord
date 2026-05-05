@@ -1,7 +1,7 @@
 {
 	"Name": "Discord",
-	"Author": "nekename",
-	"Version": "0.2.2",
+	"Author": "nekename, StrikorDawn",
+	"Version": "0.3.0",
 	"Category": "Discord",
 	"Icon": "icon",
 	"OS": [{ "Platform": "windows" }, { "Platform": "mac" }, { "Platform": "linux" }],
@@ -57,6 +57,44 @@
 			"DisableAutomaticStates": true,
 			"SupportedInMultiActions": false,
 			"States": [{ "Image": "actions/pushtotalk_0" }, { "Image": "actions/pushtotalk_1" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.togglevoicemode",
+			"Name": "Toggle Voice Mode",
+			"Icon": "actions/ptttoggle_0",
+			"Tooltip": "Switch between Voice Activity and Push-to-Talk",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/simple.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/ptttoggle_0" }, { "Image": "actions/ptttoggle_1" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.joinvoicechannel",
+			"Name": "Join Voice Channel",
+			"Icon": "actions/voicechannel_0",
+			"Tooltip": "Tap to join the configured Discord voice channel, hold to leave voice",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/simple.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/voicechannel_0" }, { "Image": "actions/voicechannel_1" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.leavevoicechannel",
+			"Name": "Leave Voice Channel",
+			"Icon": "actions/voicechannel_1",
+			"Tooltip": "Leave the current Discord voice channel",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/simple.html",
+			"States": [{ "Image": "actions/voicechannel_1" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.selecttextchannel",
+			"Name": "Select Text Channel",
+			"Icon": "actions/textchannel",
+			"Tooltip": "Open a configured Discord text channel in the client",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/simple.html",
+			"States": [{ "Image": "actions/textchannel" }]
 		}
 	]
 }
