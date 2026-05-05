@@ -43,16 +43,6 @@ impl Default for PluginActionSettings {
 }
 
 impl PluginActionSettings {
-	#[allow(dead_code)]
-	pub fn trimmed_guild_id(&self) -> Option<String> {
-		let value = self.guild_id.trim();
-		if value.is_empty() {
-			None
-		} else {
-			Some(value.to_owned())
-		}
-	}
-
 	pub fn trimmed_channel_id(&self) -> Option<String> {
 		let value = self.channel_id.trim();
 		if value.is_empty() {

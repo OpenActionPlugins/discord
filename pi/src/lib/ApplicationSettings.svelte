@@ -147,7 +147,7 @@
 			}
 
 			if (actionId === JOIN_VOICE_ACTION) {
-				sendToPlugin({ type: "voiceChannel/refresh" });
+				sendToPlugin({ type: "voiceChannel/useCurrent" });
 			}
 		})();
 

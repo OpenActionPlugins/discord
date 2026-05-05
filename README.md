@@ -40,10 +40,9 @@ Implemented actions:
 
 Documented Discord RPC features used:
 
-- `GET_GUILDS`
-- `GET_CHANNELS`
 - `GET_VOICE_SETTINGS`
 - `SET_VOICE_SETTINGS`
+- `GET_GUILD`
 - `SELECT_VOICE_CHANNEL`
 - `SELECT_TEXT_CHANNEL`
 - `GET_SELECTED_VOICE_CHANNEL`

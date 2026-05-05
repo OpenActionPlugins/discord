@@ -14,11 +14,11 @@ use discord_ipc_rust::models::receive::{
 	commands::{GetGuildData, ReturnedCommand},
 };
 use discord_ipc_rust::models::send::commands::{
-	AuthorizeArgs, GetChannelsArgs, GetGuildArgs, SelectTextChannelArgs, SelectVoiceChannelArgs, SentCommand,
+	AuthorizeArgs, GetGuildArgs, SelectTextChannelArgs, SelectVoiceChannelArgs, SentCommand,
 	SetVoiceSettingsArgs,
 };
 use discord_ipc_rust::models::send::events::SubscribeableEvent;
-use discord_ipc_rust::models::shared::{Channel, Guild, voice::VoiceSettings};
+use discord_ipc_rust::models::shared::{Channel, voice::VoiceSettings};
 use openaction::set_global_settings;
 use serde_json::json;
 use tokio::sync::{Mutex, RwLock, oneshot};
@@ -26,7 +26,7 @@ use tokio::time::{Duration, sleep, timeout};
 
 const SELECTED_VOICE_CHANNEL_POLL_SECS: u64 = 8;
 const DEFAULT_RPC_TIMEOUT_SECS: u64 = 3;
-const DISCOVERY_RPC_TIMEOUT_SECS: u64 = 10;
+const GUILD_RPC_TIMEOUT_SECS: u64 = 10;
 
 pub fn discord_client() -> &'static RwLock<Option<DiscordIpcClient>> {
 	static CLIENT: OnceLock<RwLock<Option<DiscordIpcClient>>> = OnceLock::new();
@@ -63,12 +63,6 @@ pub async fn connect() -> Result<(), String> {
 	set_connected(true).await;
 	ensure_selected_voice_channel_poller();
 	Ok(())
-}
-
-#[allow(dead_code)]
-pub async fn disconnect() {
-	*discord_client().write().await = None;
-	set_connected(false).await;
 }
 
 pub async fn update_voice_settings_cache(settings: VoiceSettings) {
@@ -128,8 +122,6 @@ enum PendingRequestKind {
 	GetVoiceSettings,
 	SetVoiceSettings,
 	GetGuild,
-	GetGuilds,
-	GetChannels,
 	SelectVoiceChannel,
 	GetSelectedVoiceChannel,
 	SelectTextChannel,
@@ -138,10 +130,6 @@ enum PendingRequestKind {
 enum PendingResponse {
 	VoiceSettings(VoiceSettings),
 	Guild(GetGuildData),
-	#[allow(dead_code)]
-	Guilds(Vec<Guild>),
-	#[allow(dead_code)]
-	Channels(Vec<Channel>),
 	Channel(Option<Channel>),
 }
 
@@ -172,19 +160,11 @@ fn copy_channel(channel: &Channel) -> Option<Channel> {
 		.and_then(|value| serde_json::from_value(value).ok())
 }
 
-fn copy_guild(guild: &Guild) -> Option<Guild> {
-	serde_json::to_value(guild)
-		.ok()
-		.and_then(|value| serde_json::from_value(value).ok())
-}
-
 fn command_label(kind: PendingRequestKind) -> &'static str {
 	match kind {
 		PendingRequestKind::GetVoiceSettings => "GET_VOICE_SETTINGS",
 		PendingRequestKind::SetVoiceSettings => "SET_VOICE_SETTINGS",
 		PendingRequestKind::GetGuild => "GET_GUILD",
-		PendingRequestKind::GetGuilds => "GET_GUILDS",
-		PendingRequestKind::GetChannels => "GET_CHANNELS",
 		PendingRequestKind::SelectVoiceChannel => "SELECT_VOICE_CHANNEL",
 		PendingRequestKind::GetSelectedVoiceChannel => "GET_SELECTED_VOICE_CHANNEL",
 		PendingRequestKind::SelectTextChannel => "SELECT_TEXT_CHANNEL",
@@ -193,11 +173,7 @@ fn command_label(kind: PendingRequestKind) -> &'static str {
 
 fn command_timeout(kind: PendingRequestKind) -> Duration {
 	match kind {
-		PendingRequestKind::GetGuild
-		| PendingRequestKind::GetGuilds
-		| PendingRequestKind::GetChannels => {
-			Duration::from_secs(DISCOVERY_RPC_TIMEOUT_SECS)
-		}
+		PendingRequestKind::GetGuild => Duration::from_secs(GUILD_RPC_TIMEOUT_SECS),
 		_ => Duration::from_secs(DEFAULT_RPC_TIMEOUT_SECS),
 	}
 }
@@ -207,8 +183,6 @@ pub async fn fulfill_pending_command(command: &ReturnedCommand) -> bool {
 		ReturnedCommand::GetVoiceSettings(_) => PendingRequestKind::GetVoiceSettings,
 		ReturnedCommand::SetVoiceSettings(_) => PendingRequestKind::SetVoiceSettings,
 		ReturnedCommand::GetGuild(_) => PendingRequestKind::GetGuild,
-		ReturnedCommand::GetGuilds(_) => PendingRequestKind::GetGuilds,
-		ReturnedCommand::GetChannels(_) => PendingRequestKind::GetChannels,
 		ReturnedCommand::SelectVoiceChannel(_) => PendingRequestKind::SelectVoiceChannel,
 		ReturnedCommand::GetSelectedVoiceChannel(_) => PendingRequestKind::GetSelectedVoiceChannel,
 		ReturnedCommand::SelectTextChannel(_) => PendingRequestKind::SelectTextChannel,
@@ -238,12 +212,6 @@ pub async fn fulfill_pending_command(command: &ReturnedCommand) -> bool {
 			name: guild.name.clone(),
 			icon_url: guild.icon_url.clone(),
 		}),
-		ReturnedCommand::GetGuilds(guilds) => PendingResponse::Guilds(
-			guilds.iter().filter_map(copy_guild).collect(),
-		),
-		ReturnedCommand::GetChannels(channels) => PendingResponse::Channels(
-			channels.iter().filter_map(copy_channel).collect(),
-		),
 		ReturnedCommand::SelectVoiceChannel(channel)
 		| ReturnedCommand::GetSelectedVoiceChannel(channel)
 		| ReturnedCommand::SelectTextChannel(channel) => PendingResponse::Channel(
@@ -396,40 +364,6 @@ pub async fn set_voice_settings_json(args: serde_json::Value) -> Result<VoiceSet
 	}
 }
 
-#[allow(dead_code)]
-pub async fn get_guilds() -> Result<Vec<Guild>, String> {
-	log::info!("Fetching Discord guilds");
-	let primary = send_request(
-		OutgoingRequest::Command(SentCommand::GetGuilds),
-		PendingRequestKind::GetGuilds,
-	)
-	.await;
-
-	let response = match primary {
-		Ok(response) => response,
-		Err(error) if error == timeout_error_for(PendingRequestKind::GetGuilds) => {
-			log::warn!("GET_GUILDS timed out; retrying with raw RPC payload");
-			send_request(
-				OutgoingRequest::RawJson(
-					json!({
-						"cmd": "GET_GUILDS",
-						"args": {}
-					})
-					.to_string(),
-				),
-				PendingRequestKind::GetGuilds,
-			)
-			.await?
-		}
-		Err(error) => return Err(error),
-	};
-
-	match response {
-		PendingResponse::Guilds(guilds) => Ok(guilds),
-		_ => Err("Discord returned an unexpected response".to_owned()),
-	}
-}
-
 pub async fn get_guild(guild_id: String) -> Result<GetGuildData, String> {
 	log::info!("Fetching Discord guild {}", guild_id);
 	match send_request(
@@ -442,44 +376,6 @@ pub async fn get_guild(guild_id: String) -> Result<GetGuildData, String> {
 	.await?
 	{
 		PendingResponse::Guild(guild) => Ok(guild),
-		_ => Err("Discord returned an unexpected response".to_owned()),
-	}
-}
-
-#[allow(dead_code)]
-pub async fn get_channels(guild_id: String) -> Result<Vec<Channel>, String> {
-	log::info!("Fetching Discord channels for guild {}", guild_id);
-	let primary = send_request(
-		OutgoingRequest::Command(SentCommand::GetChannels(GetChannelsArgs {
-			guild_id: guild_id.clone(),
-		})),
-		PendingRequestKind::GetChannels,
-	)
-	.await;
-
-	let response = match primary {
-		Ok(response) => response,
-		Err(error) if error == timeout_error_for(PendingRequestKind::GetChannels) => {
-			log::warn!("GET_CHANNELS timed out; retrying with raw RPC payload");
-			send_request(
-				OutgoingRequest::RawJson(
-					json!({
-						"cmd": "GET_CHANNELS",
-						"args": {
-							"guild_id": guild_id
-						}
-					})
-					.to_string(),
-				),
-				PendingRequestKind::GetChannels,
-			)
-			.await?
-		}
-		Err(error) => return Err(error),
-	};
-
-	match response {
-		PendingResponse::Channels(channels) => Ok(channels),
 		_ => Err("Discord returned an unexpected response".to_owned()),
 	}
 }
