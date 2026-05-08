@@ -67,6 +67,16 @@
 			"PropertyInspectorPath": "pi/simple.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/ptttoggle_0" }, { "Image": "actions/ptttoggle_1" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.togglescreenshare",
+			"Name": "Toggle Screen Share",
+			"Icon": "actions/stream_0",
+			"Tooltip": "Start or stop screen sharing in the current voice call",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/simple.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/stream_0" }, { "Image": "actions/stream_1" }]
 		}
 	]
 }
