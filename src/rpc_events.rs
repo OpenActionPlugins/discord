@@ -44,7 +44,7 @@ async fn apply_voice_state(settings: &discord_ipc_rust::models::shared::voice::V
 	let mute = settings.mute.unwrap_or(false);
 	let deaf = settings.deaf.unwrap_or(false);
 	update_action_state(crate::actions::ToggleMuteAction::UUID, mute).await;
-	update_action_state(crate::actions::ToggleDeafenAction::UUID, deaf).await;
+	update_action_state(crate::actions::ToggleMuteAction::UUID, mute || deaf).await;
 
 	if let Some(mode) = &settings.mode {
 		let is_ptt = mode.mode_type == "PUSH_TO_TALK";
