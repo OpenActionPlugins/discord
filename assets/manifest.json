@@ -87,6 +87,26 @@
 			"PropertyInspectorPath": "pi/simple.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/stream_0" }, { "Image": "actions/stream_1" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.inputvolumechange",
+			"Name": "Input Volume Control",
+			"Icon": "actions/mute_0",
+			"Tooltip": "Control microphone input volume with encoder",
+			"Controllers": ["Encoder"],
+			"PropertyInspectorPath": "pi/simple.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/mute_0" }, { "Image": "actions/mute_1" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.outputvolumechange",
+			"Name": "Output Volume Control",
+			"Icon": "actions/deafen_0",
+			"Tooltip": "Control speaker output volume with encoder",
+			"Controllers": ["Encoder"],
+			"PropertyInspectorPath": "pi/simple.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/deafen_0" }, { "Image": "actions/deafen_1" }]
 		}
 	]
 }

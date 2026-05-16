@@ -15,6 +15,9 @@ pub fn current_voice_mode() -> &'static RwLock<Option<VoiceSettingsMode>> {
 	MODE.get_or_init(|| RwLock::new(None))
 }
 
+mod volume_change;
+pub use volume_change::*;
+
 // Centralize the voice settings RPC call and Stream Deck feedback logic.
 async fn update_voice_setting(
 	instance: &Instance,
