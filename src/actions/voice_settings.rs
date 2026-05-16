@@ -6,6 +6,9 @@ use std::sync::atomic::Ordering::Relaxed;
 use discord_ipc_rust::models::send::commands::{SentCommand, SetVoiceSettingsArgs};
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 
+mod volume_change;
+pub use volume_change::*;
+
 // Centralize the voice settings RPC call and Stream Deck feedback logic.
 async fn update_voice_setting(
 	instance: &Instance,
