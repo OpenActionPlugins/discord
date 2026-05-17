@@ -3,13 +3,18 @@
 	import ApplicationSettings from "$lib/ApplicationSettings.svelte";
 
 	type AudioType = "Input" | "Output";
+	type StepDirection = "Increase" | "Decrease";
 
 	const MIN_STEPS = 1;
 	const MAX_STEPS = 10;
 	const DEFAULT_STEPS = 2;
 	const DEFAULT_AUDIO_TYPE: AudioType = "Output";
+	const DEFAULT_STEP_DIRECTION: StepDirection = "Increase";
 
 	let selectedAudioType: AudioType = $derived($actionSettings.type ?? DEFAULT_AUDIO_TYPE);
+	let selectedStepDirection: StepDirection = $derived(
+		$actionSettings.step_direction ?? DEFAULT_STEP_DIRECTION,
+	);
 	let currentSteps = $derived.by(() => {
 		const value = Number($actionSettings.steps ?? DEFAULT_STEPS);
 		if (!Number.isFinite(value)) return DEFAULT_STEPS;
@@ -19,6 +24,11 @@
 	function updateAudioType(event: Event) {
 		const value = (event.target as HTMLSelectElement).value as AudioType;
 		$actionSettings = { ...$actionSettings, type: value };
+	}
+
+	function updateStepDirection(event: Event) {
+		const value = (event.target as HTMLSelectElement).value as StepDirection;
+		$actionSettings = { ...$actionSettings, step_direction: value };
 	}
 
 	function updateSteps(event: Event) {
@@ -54,7 +64,27 @@
 	</div>
 
 	<div class="settings-grid">
-		<label for="steps" class="pt-1 text-sm">Volume Step</label>
+		<label for="steps" class="pt-1 text-sm">Volume Step Direction</label>
+		<div class="space-y-1">
+			<div class="select-wrapper">
+				<select
+					id="stepDirection"
+					value={selectedStepDirection}
+					onchange={updateStepDirection}
+					class="w-full"
+				>
+					<option value="Increase">Increase (Up)</option>
+					<option value="Decrease">Decrease (Down)</option>
+				</select>
+			</div>
+			<p class="text-xs text-neutral-400">
+				Keypad only: choose to raise or lower volume.
+			</p>
+		</div>
+	</div>
+
+	<div class="settings-grid">
+		<label for="steps" class="pt-1 text-sm">Volume Steps</label>
 		<div class="space-y-1">
 			<div class="flex items-center justify-between text-xs">
 				<span>{currentSteps}</span>
