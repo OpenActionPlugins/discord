@@ -78,7 +78,7 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 		*crate::actions::voice_input_settings().write().await = Some(VoiceSettingsWrapper {
 			device_id: input.device_id,
 			volume: input.volume,
-			enable: !mute,
+			enable: !mute && !deaf,
 		});
 	}
 
