@@ -52,7 +52,7 @@ async fn apply_voice_settings(settings: VoiceSettings) {
 		*crate::actions::voice_input_settings().write().await = Some(VoiceSettingsWrapper {
 			device_id: input.device_id,
 			volume: input.volume,
-			enable: !mute,
+			enable: !mute && !deaf,
 		});
 	}
 
