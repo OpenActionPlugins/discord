@@ -1,6 +1,6 @@
-use crate::actions::VolumeChangeSettings;
 use crate::client::schedule_reconnect;
 use crate::current_settings;
+use crate::utils::VoiceSettingsWrapper;
 
 use discord_ipc_rust::models::receive::{
 	ReceivedItem, commands::ReturnedCommand, events::ReturnedEvent,
@@ -64,28 +64,33 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 			});
 	}
 
-	update_action_state(crate::actions::InputVolumeChangeAction::UUID, mute).await;
-	update_action_state(crate::actions::OutputVolumeChangeAction::UUID, deaf).await;
+	if let Some(mode) = &settings.mode {
+		let is_ptt = mode.mode_type == "PUSH_TO_TALK";
+		update_action_state(crate::actions::ToggleVoiceInputModeAction::UUID, is_ptt).await;
+		*crate::actions::current_voice_mode().write().await =
+			Some(discord_ipc_rust::models::shared::voice::VoiceSettingsMode {
+				mode_type: mode.mode_type.clone(),
+				..*mode
+			});
+	}
 
-	update_action_settings(
-		crate::actions::InputVolumeChangeAction::UUID,
-		VolumeChangeSettings {
-			pressing: false,
-			toggle: mute,
-			data: settings.input.map(|i| i.into()),
-		},
-	)
-	.await;
+	if let Some(input) = settings.input {
+		*crate::actions::voice_input_settings().write().await = Some(VoiceSettingsWrapper {
+			device_id: input.device_id,
+			volume: input.volume,
+			enable: !mute,
+		});
+	}
 
-	update_action_settings(
-		crate::actions::OutputVolumeChangeAction::UUID,
-		VolumeChangeSettings {
-			pressing: false,
-			toggle: deaf,
-			data: settings.output.map(|o| o.into()),
-		},
-	)
-	.await;
+	if let Some(output) = settings.output {
+		*crate::actions::voice_output_settings().write().await = Some(VoiceSettingsWrapper {
+			device_id: output.device_id,
+			volume: output.volume,
+			enable: !deaf,
+		});
+	}
+
+	get_action_setting(crate::actions::VolumeControlAction::UUID).await; // Hacky way to refresh the state
 }
 
 async fn update_action_state(action_uuid: ActionUuid, active: bool) {
@@ -97,10 +102,10 @@ async fn update_action_state(action_uuid: ActionUuid, active: bool) {
 	}
 }
 
-async fn update_action_settings(action_uuid: ActionUuid, settings: impl serde::Serialize) {
+async fn get_action_setting(action_uuid: ActionUuid) {
 	for instance in visible_instances(action_uuid).await {
-		if let Err(e) = instance.set_settings(&settings).await {
-			log::error!("Failed to update settings for {}: {}", action_uuid, e);
+		if let Err(e) = instance.get_settings().await {
+			log::error!("Failed to get setting for {}: {}", action_uuid, e);
 		}
 	}
 }
