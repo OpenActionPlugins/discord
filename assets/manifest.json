@@ -64,7 +64,7 @@
 			"Icon": "actions/volumeControl_0",
 			"Tooltip": "Control your volume with an encoder or by holding down a key",
 			"Controllers": ["Keypad", "Encoder"],
-			"PropertyInspectorPath": "pi/simple.html",
+			"PropertyInspectorPath": "pi/volumecontrol.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/volumeControl_0" }, { "Image": "actions/volumeControl_1" }]
 		}

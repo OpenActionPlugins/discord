@@ -3,3 +3,27 @@
 body {
 	@apply bg-neutral-800 p-3;
 }
+
+select {
+	@apply appearance-none;
+	@apply px-3 py-2;
+	@apply text-sm text-neutral-300;
+	@apply bg-neutral-700;
+	@apply rounded-lg border border-neutral-600 outline-hidden;
+	@apply cursor-pointer;
+}
+
+.select-wrapper {
+	@apply relative;
+}
+
+.select-wrapper::after {
+	@apply absolute top-[47.5%] right-4 -translate-y-1/2;
+	@apply h-2 w-2 rotate-45;
+	@apply border-r-2 border-b-2 border-neutral-400;
+	@apply pointer-events-none content-["_"];
+}
+
+.settings-grid {
+	@apply grid grid-cols-[250px_1fr] items-start gap-x-3 gap-y-2;
+}
