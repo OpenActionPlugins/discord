@@ -1,13 +1,26 @@
 use crate::client::discord_client;
+use crate::utils::VoiceSettingsWrapper;
 
 use std::collections::HashMap;
+use std::sync::OnceLock;
 use std::sync::atomic::Ordering::Relaxed;
 
 use discord_ipc_rust::models::send::commands::{SentCommand, SetVoiceSettingsArgs};
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
+use tokio::sync::RwLock;
 
-mod volume_change;
-pub use volume_change::*;
+mod volume_control;
+pub use volume_control::*;
+
+pub fn voice_input_settings() -> &'static RwLock<Option<VoiceSettingsWrapper>> {
+	static SETTINGS: OnceLock<RwLock<Option<VoiceSettingsWrapper>>> = OnceLock::new();
+	SETTINGS.get_or_init(|| RwLock::new(None))
+}
+
+pub fn voice_output_settings() -> &'static RwLock<Option<VoiceSettingsWrapper>> {
+	static SETTINGS: OnceLock<RwLock<Option<VoiceSettingsWrapper>>> = OnceLock::new();
+	SETTINGS.get_or_init(|| RwLock::new(None))
+}
 
 // Centralize the voice settings RPC call and Stream Deck feedback logic.
 async fn update_voice_setting(
