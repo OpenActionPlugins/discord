@@ -162,6 +162,8 @@ async fn get_current_voice_settings(
 	.await;
 
 	let Some(voice_setting) = voice_setting.as_ref() else {
+	    drop(voice_setting);
+
 		log::error!(
 			"No voice setting found for type {:?}, cannot get",
 			audio_type
