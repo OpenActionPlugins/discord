@@ -170,11 +170,7 @@ async fn get_current_voice_settings(
 		return Ok(None);
 	};
 
-	Ok(Some(VoiceSettingsWrapper {
-		device_id: voice_setting.device_id.clone(),
-		volume: voice_setting.volume,
-		enable: voice_setting.enable,
-	}))
+	Ok(Some(voice_setting.clone()))
 }
 
 async fn with_current_voice_settings<R>(
@@ -233,7 +229,7 @@ async fn adjust_volume(
 		Alert,
 		Success {
 			args: SetVoiceSettingsArgs,
-			next_state: usize,
+			enable: bool,
 		},
 	}
 
@@ -241,23 +237,19 @@ async fn adjust_volume(
 		let current_volume = voice_settings.volume;
 		let new_volume = (current_volume + delta).clamp(0.0, settings.r#type.max_volume());
 
-		if (new_volume - current_volume).abs() < f32::EPSILON {
+		if current_volume == new_volume {
 			return VolumeAdjustOutcome::Alert;
 		}
 
 		voice_settings.volume = new_volume;
 
 		let args = volume_args(
-			VoiceSettingsWrapper {
-				device_id: voice_settings.device_id.clone(),
-				volume: voice_settings.volume,
-				enable: voice_settings.enable,
-			},
+		    voice_settings.clone(),
 			&settings.r#type,
 		);
 		VolumeAdjustOutcome::Success {
 			args,
-			next_state: if voice_settings.enable { 0 } else { 1 },
+			enable: voice_settings.enable,
 		}
 	})
 	.await?
@@ -270,8 +262,8 @@ async fn adjust_volume(
 			instance.show_alert().await?;
 			Ok(())
 		}
-		VolumeAdjustOutcome::Success { args, next_state } => {
-			update_voice_setting(instance, args, next_state).await
+		VolumeAdjustOutcome::Success { args, enable } => {
+			update_voice_setting(instance, args, if enable { 0 } else { 1 }).await
 		}
 	}
 }
