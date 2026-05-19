@@ -29,9 +29,13 @@ impl VoiceDeviceType {
 			return 0.0;
 		}
 
-		let linear = 100.0 * (discord_vol / 100.0).powf(1.0 / 2.8);
+		let linear_vol = if discord_vol > 100.0 {
+			discord_vol.ceil().clamp(101.0, self.max_volume())
+		} else {
+		    (100.0 * (discord_vol / 100.0).powf(1.0 / 2.8)).clamp(0.0, 100.0)
+		};
 
-		linear.clamp(0.0, self.max_volume())
+		 linear_vol
 	}
 
 	pub fn to_discord(&self, linear_vol: f32) -> f32 {
@@ -39,8 +43,12 @@ impl VoiceDeviceType {
 			return 0.0;
 		}
 
-		let discord_vol = 100.0 * (linear_vol / 100.0).powf(2.8);
+		let discord_vol = if linear_vol > 100.0 {
+            linear_vol.floor().clamp(101.0, self.max_volume())
+        } else {
+            (100.0 * (linear_vol / 100.0).powf(2.8)).clamp(0.0, 100.0)
+        };
 
-		discord_vol.clamp(0.0, self.max_volume())
+		discord_vol
 	}
 }
