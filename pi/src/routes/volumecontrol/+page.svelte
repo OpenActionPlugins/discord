@@ -2,16 +2,16 @@
 	import { actionSettings } from "@openaction/svelte-pi";
 	import ApplicationSettings from "$lib/ApplicationSettings.svelte";
 
-	type AudioType = "Input" | "Output";
+	type AudioDeviceType = "Input" | "Output";
 	type StepDirection = "Increase" | "Decrease";
 
 	const MIN_STEPS = 1;
 	const MAX_STEPS = 10;
 	const DEFAULT_STEPS = 2;
-	const DEFAULT_AUDIO_TYPE: AudioType = "Output";
+	const DEFAULT_AUDIO_DEVICE_TYPE: AudioDeviceType = "Output";
 	const DEFAULT_STEP_DIRECTION: StepDirection = "Increase";
 
-	let selectedAudioType: AudioType = $derived($actionSettings.type ?? DEFAULT_AUDIO_TYPE);
+	let selectedAudioDeviceType: AudioDeviceType = $derived($actionSettings.device_type ?? DEFAULT_AUDIO_DEVICE_TYPE);
 	let selectedStepDirection: StepDirection = $derived(
 		$actionSettings.step_direction ?? DEFAULT_STEP_DIRECTION,
 	);
@@ -21,9 +21,9 @@
 		return Math.max(MIN_STEPS, Math.min(MAX_STEPS, Math.round(value)));
 	});
 
-	function updateAudioType(event: Event) {
-		const value = (event.target as HTMLSelectElement).value as AudioType;
-		$actionSettings = { ...$actionSettings, type: value };
+	function updateAudioDeviceType(event: Event) {
+		const value = (event.target as HTMLSelectElement).value as AudioDeviceType;
+		$actionSettings = { ...$actionSettings, device_type: value };
 	}
 
 	function updateStepDirection(event: Event) {
@@ -49,17 +49,14 @@
 			<div class="select-wrapper">
 				<select
 					id="audioType"
-					value={selectedAudioType}
-					onchange={updateAudioType}
+					value={selectedAudioDeviceType}
+					onchange={updateAudioDeviceType}
 					class="w-full"
 				>
 					<option value="Input">Input</option>
 					<option value="Output">Output</option>
 				</select>
 			</div>
-			<p class="text-xs text-neutral-400">
-				Choose whether this control adjusts input or output volume.
-			</p>
 		</div>
 	</div>
 
@@ -73,8 +70,8 @@
 					onchange={updateStepDirection}
 					class="w-full"
 				>
-					<option value="Increase">Increase (Up)</option>
-					<option value="Decrease">Decrease (Down)</option>
+					<option value="Increase">Increase</option>
+					<option value="Decrease">Decrease</option>
 				</select>
 			</div>
 			<p class="text-xs text-neutral-400">

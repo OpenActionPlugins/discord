@@ -1,27 +1,10 @@
 use super::{update_voice_setting, voice_input_settings, voice_output_settings};
-use crate::utils::VoiceSettingsWrapper;
+use crate::utils::{VoiceDeviceType, VoiceSettingsWrapper};
 
 use discord_ipc_rust::models::send::commands::SetVoiceSettingsArgs;
 use discord_ipc_rust::models::shared::voice::{VoiceSettingsInput, VoiceSettingsOutput};
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
-pub enum AudioType {
-	Input,
-	#[default]
-	Output,
-}
-
-impl AudioType {
-	fn is_input(&self) -> bool {
-		matches!(self, Self::Input)
-	}
-
-	fn max_volume(&self) -> f32 {
-		if self.is_input() { 100.0 } else { 200.0 }
-	}
-}
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 pub enum StepDirection {
@@ -44,7 +27,7 @@ impl StepDirection {
 pub struct VolumeControlSettings {
 	pub pressing: bool,
 
-	pub r#type: AudioType,
+	pub device_type: VoiceDeviceType,
 	pub step_direction: StepDirection,
 	pub steps: u8,
 }
@@ -53,7 +36,7 @@ impl Default for VolumeControlSettings {
 	fn default() -> Self {
 		Self {
 			pressing: false,
-			r#type: AudioType::default(),
+			device_type: VoiceDeviceType::default(),
 			step_direction: StepDirection::default(),
 			steps: 2,
 		}
@@ -71,7 +54,8 @@ impl Action for VolumeControlAction {
 		instance: &Instance,
 		settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		if let Some(voice_settings) = get_current_voice_settings(instance, &settings.r#type).await?
+		if let Some(voice_settings) =
+			get_current_voice_settings(instance, &settings.device_type).await?
 		{
 			instance
 				.set_state(if voice_settings.enable { 0 } else { 1 })
@@ -123,7 +107,7 @@ impl Action for VolumeControlAction {
 		settings: &Self::Settings,
 	) -> OpenActionResult<()> {
 		let Some(new_toggle) =
-			with_current_voice_settings(instance, &settings.r#type, |voice_settings| {
+			with_current_voice_settings(instance, &settings.device_type, |voice_settings| {
 				let new_toggle = voice_settings.enable;
 				voice_settings.enable = !new_toggle;
 				new_toggle
@@ -133,7 +117,7 @@ impl Action for VolumeControlAction {
 			return Ok(());
 		};
 
-		let args = if settings.r#type.is_input() {
+		let args = if settings.device_type.is_input() {
 			SetVoiceSettingsArgs {
 				mute: Some(new_toggle),
 				..Default::default()
@@ -151,9 +135,9 @@ impl Action for VolumeControlAction {
 
 async fn get_current_voice_settings(
 	instance: &Instance,
-	audio_type: &AudioType,
+	device_type: &VoiceDeviceType,
 ) -> OpenActionResult<Option<VoiceSettingsWrapper>> {
-	let voice_setting = if audio_type.is_input() {
+	let voice_setting = if device_type.is_input() {
 		voice_input_settings()
 	} else {
 		voice_output_settings()
@@ -162,11 +146,11 @@ async fn get_current_voice_settings(
 	.await;
 
 	let Some(voice_setting) = voice_setting.as_ref() else {
-	    drop(voice_setting);
+		drop(voice_setting);
 
 		log::error!(
 			"No voice setting found for type {:?}, cannot get",
-			audio_type
+			device_type
 		);
 		instance.show_alert().await?;
 		return Ok(None);
@@ -177,10 +161,10 @@ async fn get_current_voice_settings(
 
 async fn with_current_voice_settings<R>(
 	instance: &Instance,
-	audio_type: &AudioType,
+	device_type: &VoiceDeviceType,
 	updater: impl FnOnce(&mut VoiceSettingsWrapper) -> R,
 ) -> OpenActionResult<Option<R>> {
-	let mut voice_setting = if audio_type.is_input() {
+	let mut voice_setting = if device_type.is_input() {
 		voice_input_settings()
 	} else {
 		voice_output_settings()
@@ -191,7 +175,7 @@ async fn with_current_voice_settings<R>(
 	let Some(voice_setting) = voice_setting.as_mut() else {
 		log::error!(
 			"No voice setting found for type {:?}, cannot update",
-			audio_type
+			device_type
 		);
 		instance.show_alert().await?;
 		return Ok(None);
@@ -200,8 +184,11 @@ async fn with_current_voice_settings<R>(
 	Ok(Some(updater(voice_setting)))
 }
 
-fn volume_args(wrapper: VoiceSettingsWrapper, audio_type: &AudioType) -> SetVoiceSettingsArgs {
-	if audio_type.is_input() {
+fn volume_args(
+	wrapper: VoiceSettingsWrapper,
+	device_type: &VoiceDeviceType,
+) -> SetVoiceSettingsArgs {
+	if device_type.is_input() {
 		SetVoiceSettingsArgs {
 			input: Some(VoiceSettingsInput {
 				device_id: wrapper.device_id,
@@ -228,39 +215,37 @@ async fn adjust_volume(
 	delta: f32,
 ) -> OpenActionResult<()> {
 	enum VolumeAdjustOutcome {
-		Alert,
+		NoChange,
 		Success {
 			args: SetVoiceSettingsArgs,
 			enable: bool,
 		},
 	}
 
-	let Some(result) = with_current_voice_settings(instance, &settings.r#type, |voice_settings| {
-		let current_volume = voice_settings.volume;
-		let new_volume = (current_volume + delta).clamp(0.0, settings.r#type.max_volume());
+	let Some(result) =
+		with_current_voice_settings(instance, &settings.device_type, |voice_settings| {
+			let current_linear = settings.device_type.to_linear(voice_settings.volume);
+			let new_linear = (current_linear + delta).clamp(0.0, settings.device_type.max_volume());
 
-		if current_volume == new_volume {
-			return VolumeAdjustOutcome::Alert;
-		}
+			if current_linear == new_linear {
+				return VolumeAdjustOutcome::NoChange;
+			}
 
-		voice_settings.volume = new_volume;
+			voice_settings.volume = settings.device_type.to_discord(new_linear);
 
-		let args = volume_args(
-		    voice_settings.clone(),
-			&settings.r#type,
-		);
-		VolumeAdjustOutcome::Success {
-			args,
-			enable: voice_settings.enable,
-		}
-	})
-	.await?
+			let args = volume_args(voice_settings.clone(), &settings.device_type);
+			VolumeAdjustOutcome::Success {
+				args,
+				enable: voice_settings.enable,
+			}
+		})
+		.await?
 	else {
 		return Ok(());
 	};
 
 	match result {
-		VolumeAdjustOutcome::Alert => {
+		VolumeAdjustOutcome::NoChange => {
 			instance.show_alert().await?;
 			Ok(())
 		}
