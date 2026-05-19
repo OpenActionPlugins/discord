@@ -1,10 +1,22 @@
 use super::{update_voice_setting, voice_input_settings, voice_output_settings};
 use crate::utils::{VoiceDeviceType, VoiceSettingsWrapper};
 
+use std::sync::LazyLock;
+
 use discord_ipc_rust::models::send::commands::SetVoiceSettingsArgs;
 use discord_ipc_rust::models::shared::voice::{VoiceSettingsInput, VoiceSettingsOutput};
-use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
+use openaction::{
+	Action, ActionUuid, Instance, InstanceId, OpenActionResult, async_trait, visible_instances,
+};
 use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex;
+use tokio::time::Duration;
+
+const HOLD_INITIAL_DELAY: Duration = Duration::from_millis(500);
+const HOLD_REPEAT_INTERVAL: Duration = Duration::from_millis(200);
+
+static HOLD_ACTIVE_INSTANCE: LazyLock<Mutex<Option<InstanceId>>> =
+	LazyLock::new(|| Mutex::new(None));
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 pub enum StepDirection {
@@ -25,8 +37,6 @@ impl StepDirection {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct VolumeControlSettings {
-	pub pressing: bool,
-
 	pub device_type: VoiceDeviceType,
 	pub step_direction: StepDirection,
 	pub steps: u8,
@@ -35,7 +45,6 @@ pub struct VolumeControlSettings {
 impl Default for VolumeControlSettings {
 	fn default() -> Self {
 		Self {
-			pressing: false,
 			device_type: VoiceDeviceType::default(),
 			step_direction: StepDirection::default(),
 			steps: 2,
@@ -65,11 +74,23 @@ impl Action for VolumeControlAction {
 		Ok(())
 	}
 
-	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {
-		let mut new_settings = settings.clone();
-		new_settings.pressing = false;
+	async fn will_disappear(
+		&self,
+		instance: &Instance,
+		_settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		clear_active_hold(&instance.instance_id).await;
 
-		instance.set_settings(&new_settings).await?;
+		Ok(())
+	}
+
+	async fn key_up(
+		&self,
+		instance: &Instance,
+		_settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		clear_active_hold(&instance.instance_id).await;
+
 		Ok(())
 	}
 
@@ -78,13 +99,52 @@ impl Action for VolumeControlAction {
 		instance: &Instance,
 		settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		let mut new_settings = settings.clone();
-		new_settings.pressing = true;
-		instance.set_settings(&new_settings).await?;
-
-		// TODO: allow holding key to continuously adjust volume instead of just once on key down
+		let start_loop = {
+			let mut active = HOLD_ACTIVE_INSTANCE.lock().await;
+			// 1. If another instance is active, do nothing
+			// 2. If this instance is already active, don't restart the loop
+			// 3. If no instance is active, set this instance as active and start the loop
+			match active.as_ref() {
+				Some(active_id) if active_id != &instance.instance_id => return Ok(()),
+				Some(_) => false,
+				None => {
+					*active = Some(instance.instance_id.clone());
+					true
+				}
+			}
+		};
 
 		let delta = (settings.steps as f32) * settings.step_direction.multiplier();
+
+		if start_loop {
+			use tokio::time::sleep;
+
+			let id = instance.instance_id.clone();
+			let settings = settings.clone();
+
+			tokio::spawn(async move {
+				let Some(instance) = visible_instances(VolumeControlAction::UUID)
+					.await
+					.into_iter()
+					.find(|i| i.instance_id == id)
+				else {
+				    clear_active_hold(&id).await;
+					return;
+				};
+
+				sleep(HOLD_INITIAL_DELAY).await;
+
+				while HOLD_ACTIVE_INSTANCE.lock().await.as_ref() == Some(&id) {
+					if let Err(e) = adjust_volume(instance.as_ref(), &settings, delta).await {
+						log::error!("Failed to adjust volume while holding key down: {e}");
+						let _ = instance.show_alert().await;
+					}
+
+					sleep(HOLD_REPEAT_INTERVAL).await;
+				}
+			});
+		}
+
 		adjust_volume(instance, settings, delta).await
 	}
 
@@ -181,6 +241,13 @@ async fn with_current_voice_settings<R>(
 	};
 
 	Ok(Some(updater(voice_setting)))
+}
+
+async fn clear_active_hold(id: &InstanceId) {
+	let mut active = HOLD_ACTIVE_INSTANCE.lock().await;
+	if active.as_ref() == Some(id) {
+		active.take();
+	}
 }
 
 fn volume_args(
