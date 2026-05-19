@@ -1,2 +1,2 @@
-mod voice_settings_wrapper;
-pub use voice_settings_wrapper::VoiceSettingsWrapper;
+mod voice;
+pub use voice::*;
