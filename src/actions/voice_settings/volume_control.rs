@@ -95,8 +95,7 @@ impl Action for VolumeControlAction {
 		ticks: i16,
 		_pressed: bool,
 	) -> OpenActionResult<()> {
-		let direction = ticks.signum() as f32;
-		let delta = (settings.steps as f32) * direction * settings.step_direction.multiplier();
+		let delta = (settings.steps as f32) * ticks as f32;
 
 		adjust_volume(instance, settings, delta).await
 	}

@@ -39,9 +39,8 @@ impl VoiceDeviceType {
 			return 0.0;
 		}
 
-		let max = self.max_volume();
 		let discord_vol = 100.0 * (linear_vol / 100.0).powf(2.8);
 
-		discord_vol.clamp(0.0, max)
+		discord_vol.clamp(0.0, self.max_volume())
 	}
 }
