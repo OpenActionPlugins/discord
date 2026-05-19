@@ -226,7 +226,7 @@ async fn adjust_volume(
 			let current_linear = settings.device_type.to_linear(voice_settings.volume);
 			let new_linear = (current_linear + delta).clamp(0.0, settings.device_type.max_volume());
 
-			if current_linear == new_linear {
+			if (new_linear - current_linear).abs() < f32::EPSILON {
 				return VolumeAdjustOutcome::NoChange;
 			}
 
