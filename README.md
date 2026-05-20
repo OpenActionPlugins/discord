@@ -11,3 +11,4 @@ An OpenAction ([OpenDeck](https://github.com/nekename/OpenDeck) / [Tacto](https:
 - Toggle Deafen
 - Push to Mute
 - Push to Talk
+- Volume Control
