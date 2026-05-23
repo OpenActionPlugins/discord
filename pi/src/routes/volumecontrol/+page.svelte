@@ -40,8 +40,6 @@
 	}
 </script>
 
-<ApplicationSettings />
-
 <div class="space-y-4 pt-1 text-xs text-neutral-200">
 	<div class="settings-grid">
 		<label for="audioType" class="pt-2 text-sm">Target</label>
@@ -99,3 +97,5 @@
 		</div>
 	</div>
 </div>
+
+<ApplicationSettings />

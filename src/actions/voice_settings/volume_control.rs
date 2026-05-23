@@ -99,11 +99,11 @@ impl Action for VolumeControlAction {
 		instance: &Instance,
 		settings: &Self::Settings,
 	) -> OpenActionResult<()> {
+		// 1. If another instance is active, do nothing
+		// 2. If this instance is already active, don't restart the loop
+		// 3. If no instance is active, set this instance as active and start the loop
 		let start_loop = {
 			let mut active = HOLD_ACTIVE_INSTANCE.lock().await;
-			// 1. If another instance is active, do nothing
-			// 2. If this instance is already active, don't restart the loop
-			// 3. If no instance is active, set this instance as active and start the loop
 			match active.as_ref() {
 				Some(active_id) if active_id != &instance.instance_id => return Ok(()),
 				Some(_) => false,
@@ -196,7 +196,7 @@ async fn get_current_voice_settings(
 	instance: &Instance,
 	device_type: &VoiceDeviceType,
 ) -> OpenActionResult<Option<VoiceSettingsWrapper>> {
-    // Drop the lock after cloned
+	// Drop the lock after cloned
 	let voice_settings = {
 		if device_type.is_input() {
 			voice_input_settings()
@@ -234,7 +234,7 @@ async fn with_current_voice_settings<R>(
 	.await;
 
 	let Some(voice_setting) = voice_setting_write_lock.as_mut() else {
-	    drop(voice_setting_write_lock); // Drop the lock before show_alert()
+		drop(voice_setting_write_lock); // Drop the lock before show_alert()
 
 		log::error!(
 			"No voice setting found for type {:?}, cannot update",
