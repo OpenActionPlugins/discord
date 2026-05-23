@@ -293,7 +293,7 @@ async fn adjust_volume(
 			let current_linear = settings.device_type.to_linear(voice_settings.volume);
 			let new_linear = (current_linear + delta).clamp(0.0, settings.device_type.max_volume());
 
-			if (new_linear - current_linear).abs() < 0.05 {
+			if new_linear == current_linear {
 				return VolumeAdjustOutcome::NoChange;
 			}
 

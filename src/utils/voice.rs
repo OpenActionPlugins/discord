@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 pub struct VoiceSettingsWrapper {
 	pub device_id: String,
 	pub volume: f32,
-
 	pub enable: bool,
 }
 
@@ -29,13 +28,14 @@ impl VoiceDeviceType {
 			return 0.0;
 		}
 
-		let linear_vol = if discord_vol > 100.0 {
-			discord_vol.ceil().clamp(101.0, self.max_volume())
+		let linear_vol = if discord_vol >= 100.0 {
+			// 100 + 100 * (ln(discord_vol) - 4.60517019) / 0.69077554
+			(100.0 + 100.0 * (discord_vol.ln() - 4.60517019) / 0.69077555).round().clamp(0.0, self.max_volume())
 		} else {
-		    (100.0 * (discord_vol / 100.0).powf(1.0 / 2.8)).clamp(0.0, 100.0)
+			(100.0 * (discord_vol / 100.0).powf(1.0 / 2.8)).clamp(0.0, 100.0)
 		};
 
-		 linear_vol
+		linear_vol
 	}
 
 	pub fn to_discord(&self, linear_vol: f32) -> f32 {
@@ -44,10 +44,13 @@ impl VoiceDeviceType {
 		}
 
 		let discord_vol = if linear_vol > 100.0 {
-            linear_vol.floor().clamp(101.0, self.max_volume())
-        } else {
-            (100.0 * (linear_vol / 100.0).powf(2.8)).clamp(0.0, 100.0)
-        };
+		    let x = linear_vol.clamp(100.0, self.max_volume());
+
+			// 100 * (1.99526234 ** ((x - 100) / 100))
+			100.0 * (1.99526234_f32.powf((x - 100.0) / 100.0))
+		} else {
+			(100.0 * (linear_vol / 100.0).powf(2.8)).clamp(0.0, 100.0)
+		};
 
 		discord_vol
 	}
