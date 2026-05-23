@@ -196,26 +196,28 @@ async fn get_current_voice_settings(
 	instance: &Instance,
 	device_type: &VoiceDeviceType,
 ) -> OpenActionResult<Option<VoiceSettingsWrapper>> {
-	let voice_setting = if device_type.is_input() {
-		voice_input_settings()
-	} else {
-		voice_output_settings()
-	}
-	.read()
-	.await;
+    // Drop the lock after cloned
+	let voice_settings = {
+		if device_type.is_input() {
+			voice_input_settings()
+		} else {
+			voice_output_settings()
+		}
+		.read()
+		.await
+		.clone()
+	};
 
-	let Some(voice_setting) = voice_setting.as_ref() else {
-		drop(voice_setting);
-
+	if voice_settings.is_none() {
 		log::error!(
-			"No voice setting found for type {:?}, cannot get",
+			"No voice settings found for type {:?}, likely not in a voice channel",
 			device_type
 		);
 		instance.show_alert().await?;
 		return Ok(None);
-	};
+	}
 
-	Ok(Some(voice_setting.clone()))
+	Ok(voice_settings)
 }
 
 async fn with_current_voice_settings<R>(
@@ -223,7 +225,7 @@ async fn with_current_voice_settings<R>(
 	device_type: &VoiceDeviceType,
 	updater: impl FnOnce(&mut VoiceSettingsWrapper) -> R,
 ) -> OpenActionResult<Option<R>> {
-	let mut voice_setting = if device_type.is_input() {
+	let mut voice_setting_write_lock = if device_type.is_input() {
 		voice_input_settings()
 	} else {
 		voice_output_settings()
@@ -231,7 +233,9 @@ async fn with_current_voice_settings<R>(
 	.write()
 	.await;
 
-	let Some(voice_setting) = voice_setting.as_mut() else {
+	let Some(voice_setting) = voice_setting_write_lock.as_mut() else {
+	    drop(voice_setting_write_lock); // Drop the lock before show_alert()
+
 		log::error!(
 			"No voice setting found for type {:?}, cannot update",
 			device_type
