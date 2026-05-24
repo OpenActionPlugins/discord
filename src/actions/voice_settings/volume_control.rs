@@ -253,14 +253,6 @@ async fn adjust_volume(
 	settings: &VolumeControlSettings,
 	delta: f32,
 ) -> OpenActionResult<()> {
-	enum VolumeAdjustOutcome {
-		NoChange,
-		Success {
-			args: SetVoiceSettingsArgs,
-			enable: bool,
-		},
-	}
-
 	let Some(voice_settings) = get_current_voice_settings(instance, &settings.device_type).await?
 	else {
 		return Ok(());
@@ -268,26 +260,13 @@ async fn adjust_volume(
 	let current_linear = settings.device_type.to_linear(voice_settings.volume);
 	let new_linear = (current_linear + delta).clamp(0.0, settings.device_type.max_volume());
 
-	let result = if new_linear == current_linear {
-		VolumeAdjustOutcome::NoChange
-	} else {
-		let mut updated_settings = voice_settings.clone();
-		updated_settings.volume = settings.device_type.to_discord(new_linear);
-		let args = volume_args(updated_settings, &settings.device_type);
+	if new_linear == current_linear {
+	    return Ok(());
+    }
 
-		VolumeAdjustOutcome::Success {
-			args,
-			enable: voice_settings.enable,
-		}
-	};
+	let mut updated_settings = voice_settings.clone();
+	updated_settings.volume = settings.device_type.to_discord(new_linear);
+	let args = volume_args(updated_settings, &settings.device_type);
 
-	match result {
-		VolumeAdjustOutcome::NoChange => {
-			instance.show_alert().await?;
-			Ok(())
-		}
-		VolumeAdjustOutcome::Success { args, enable } => {
-			update_voice_setting(instance, args, if enable { 0 } else { 1 }).await
-		}
-	}
+	update_voice_setting(instance, args, if voice_settings.enable { 0 } else { 1 }).await
 }
