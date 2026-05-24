@@ -1,10 +1,12 @@
-use super::{update_voice_setting, voice_input_settings, voice_output_settings};
-use crate::utils::{VoiceDeviceType, VoiceSettingsWrapper};
+use super::{
+	audio_device_setting_args, get_current_voice_settings, update_voice_setting,
+	with_current_voice_settings,
+};
+use crate::utils::VoiceDeviceType;
 
 use std::sync::LazyLock;
 
 use discord_ipc_rust::models::send::commands::SetVoiceSettingsArgs;
-use discord_ipc_rust::models::shared::voice::{VoiceSettingsInput, VoiceSettingsOutput};
 use openaction::{
 	Action, ActionUuid, Instance, InstanceId, OpenActionResult, async_trait, visible_instances,
 };
@@ -192,90 +194,10 @@ impl Action for VolumeControlAction {
 	}
 }
 
-async fn get_current_voice_settings(
-	instance: &Instance,
-	device_type: &VoiceDeviceType,
-) -> OpenActionResult<Option<VoiceSettingsWrapper>> {
-	// Drop the lock after cloned
-	let voice_settings = {
-		if device_type.is_input() {
-			voice_input_settings()
-		} else {
-			voice_output_settings()
-		}
-		.read()
-		.await
-		.clone()
-	};
-
-	if voice_settings.is_none() {
-		log::error!(
-			"No voice settings found for type {:?}, likely not in a voice channel",
-			device_type
-		);
-		instance.show_alert().await?;
-		return Ok(None);
-	}
-
-	Ok(voice_settings)
-}
-
-async fn with_current_voice_settings<R>(
-	instance: &Instance,
-	device_type: &VoiceDeviceType,
-	updater: impl FnOnce(&mut VoiceSettingsWrapper) -> R,
-) -> OpenActionResult<Option<R>> {
-	let mut voice_setting_write_lock = if device_type.is_input() {
-		voice_input_settings()
-	} else {
-		voice_output_settings()
-	}
-	.write()
-	.await;
-
-	let Some(voice_setting) = voice_setting_write_lock.as_mut() else {
-		drop(voice_setting_write_lock); // Drop the lock before show_alert()
-
-		log::error!(
-			"No voice setting found for type {:?}, cannot update",
-			device_type
-		);
-		instance.show_alert().await?;
-		return Ok(None);
-	};
-
-	Ok(Some(updater(voice_setting)))
-}
-
 async fn clear_active_hold(id: &InstanceId) {
 	let mut active = HOLD_ACTIVE_INSTANCE.lock().await;
 	if active.as_ref() == Some(id) {
 		active.take();
-	}
-}
-
-fn volume_args(
-	wrapper: VoiceSettingsWrapper,
-	device_type: &VoiceDeviceType,
-) -> SetVoiceSettingsArgs {
-	if device_type.is_input() {
-		SetVoiceSettingsArgs {
-			input: Some(VoiceSettingsInput {
-				device_id: wrapper.device_id,
-				volume: wrapper.volume,
-				available_devices: Vec::new(),
-			}),
-			..Default::default()
-		}
-	} else {
-		SetVoiceSettingsArgs {
-			output: Some(VoiceSettingsOutput {
-				device_id: wrapper.device_id,
-				volume: wrapper.volume,
-				available_devices: Vec::new(),
-			}),
-			..Default::default()
-		}
 	}
 }
 
@@ -303,7 +225,7 @@ async fn adjust_volume(
 
 			voice_settings.volume = settings.device_type.to_discord(new_linear);
 
-			let args = volume_args(voice_settings.clone(), &settings.device_type);
+			let args = audio_device_setting_args(voice_settings.clone(), &settings.device_type);
 			VolumeAdjustOutcome::Success {
 				args,
 				enable: voice_settings.enable,

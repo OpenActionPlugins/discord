@@ -1,9 +1,26 @@
+use discord_ipc_rust::models::shared::voice::VoiceAvailableDevice;
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct VoiceDeviceWrapper {
+    pub id: String,
+    pub name: String,
+}
+
+impl From<&VoiceAvailableDevice> for VoiceDeviceWrapper {
+    fn from(device: &VoiceAvailableDevice) -> Self {
+        Self {
+            id: device.id.clone(),
+            name: device.name.clone(),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct VoiceSettingsWrapper {
 	pub device_id: String,
 	pub volume: f32,
+	pub avaliable_devices: Vec<VoiceDeviceWrapper>,
 	pub enable: bool,
 }
 
@@ -17,6 +34,10 @@ pub enum VoiceDeviceType {
 impl VoiceDeviceType {
 	pub fn is_input(&self) -> bool {
 		matches!(self, Self::Input)
+	}
+
+	pub fn label(&self) -> &'static str {
+		if self.is_input() { "input" } else { "output" }
 	}
 
 	pub fn max_volume(&self) -> f32 {

@@ -52,6 +52,7 @@ async fn apply_voice_settings(settings: VoiceSettings) {
 		*crate::actions::voice_input_settings().write().await = Some(VoiceSettingsWrapper {
 			device_id: input.device_id,
 			volume: input.volume,
+			avaliable_devices: input.available_devices.iter().map(|d| d.into()).collect(),
 			enable: !mute && !deaf,
 		});
 	}
@@ -60,11 +61,13 @@ async fn apply_voice_settings(settings: VoiceSettings) {
 		*crate::actions::voice_output_settings().write().await = Some(VoiceSettingsWrapper {
 			device_id: output.device_id,
 			volume: output.volume,
+			avaliable_devices: output.available_devices.iter().map(|d| d.into()).collect(),
 			enable: !deaf,
 		});
 	}
 
 	get_action_setting(crate::actions::VolumeControlAction::UUID).await; // Hacky way to refresh the state
+	get_action_setting(crate::actions::SetAudioDeviceAction::UUID).await;
 }
 
 async fn update_action_state(action_uuid: ActionUuid, active: bool) {

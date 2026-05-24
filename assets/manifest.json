@@ -59,6 +59,16 @@
 			"States": [{ "Image": "actions/pushtotalk_0" }, { "Image": "actions/pushtotalk_1" }]
 		},
 		{
+			"UUID": "me.amankhanna.oadiscord.setaudiodevice",
+			"Name": "Set Audio Device",
+			"Icon": "actions/headphonesAndMicrophone",
+			"Tooltip": "Switch Discord input/output devices",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/setaudiodevice.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/headphonesAndMicrophone" }]
+		},
+		{
 			"UUID": "me.amankhanna.oadiscord.volumecontrol",
 			"Name": "Volume Control",
 			"Icon": "actions/volumeControl_0",
