@@ -165,16 +165,12 @@ impl Action for VolumeControlAction {
 		instance: &Instance,
 		settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		let Some(new_toggle) =
-			with_current_voice_settings(instance, &settings.device_type, |voice_settings| {
-				let new_toggle = voice_settings.enable;
-				voice_settings.enable = !new_toggle;
-				new_toggle
-			})
-			.await?
+		let Some(voice_settings) =
+			get_current_voice_settings(instance, &settings.device_type).await?
 		else {
 			return Ok(());
 		};
+		let new_toggle = voice_settings.enable;
 
 		let args = if settings.device_type.is_input() {
 			SetVoiceSettingsArgs {
@@ -218,33 +214,6 @@ async fn get_current_voice_settings(
 	}
 
 	Ok(voice_settings)
-}
-
-async fn with_current_voice_settings<R>(
-	instance: &Instance,
-	device_type: &VoiceDeviceType,
-	updater: impl FnOnce(&mut VoiceSettingsWrapper) -> R,
-) -> OpenActionResult<Option<R>> {
-	let mut voice_setting_write_lock = if device_type.is_input() {
-		voice_input_settings()
-	} else {
-		voice_output_settings()
-	}
-	.write()
-	.await;
-
-	let Some(voice_setting) = voice_setting_write_lock.as_mut() else {
-		drop(voice_setting_write_lock); // Drop the lock before show_alert()
-
-		log::error!(
-			"No voice setting found for type {:?}, cannot update",
-			device_type
-		);
-		instance.show_alert().await?;
-		return Ok(None);
-	};
-
-	Ok(Some(updater(voice_setting)))
 }
 
 async fn clear_active_hold(id: &InstanceId) {
@@ -292,26 +261,24 @@ async fn adjust_volume(
 		},
 	}
 
-	let Some(result) =
-		with_current_voice_settings(instance, &settings.device_type, |voice_settings| {
-			let current_linear = settings.device_type.to_linear(voice_settings.volume);
-			let new_linear = (current_linear + delta).clamp(0.0, settings.device_type.max_volume());
-
-			if new_linear == current_linear {
-				return VolumeAdjustOutcome::NoChange;
-			}
-
-			voice_settings.volume = settings.device_type.to_discord(new_linear);
-
-			let args = volume_args(voice_settings.clone(), &settings.device_type);
-			VolumeAdjustOutcome::Success {
-				args,
-				enable: voice_settings.enable,
-			}
-		})
-		.await?
+	let Some(voice_settings) = get_current_voice_settings(instance, &settings.device_type).await?
 	else {
 		return Ok(());
+	};
+	let current_linear = settings.device_type.to_linear(voice_settings.volume);
+	let new_linear = (current_linear + delta).clamp(0.0, settings.device_type.max_volume());
+
+	let result = if new_linear == current_linear {
+		VolumeAdjustOutcome::NoChange
+	} else {
+		let mut updated_settings = voice_settings.clone();
+		updated_settings.volume = settings.device_type.to_discord(new_linear);
+		let args = volume_args(updated_settings, &settings.device_type);
+
+		VolumeAdjustOutcome::Success {
+			args,
+			enable: voice_settings.enable,
+		}
 	};
 
 	match result {
