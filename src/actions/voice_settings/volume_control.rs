@@ -261,8 +261,8 @@ async fn adjust_volume(
 	let new_linear = (current_linear + delta).clamp(0.0, settings.device_type.max_volume());
 
 	if new_linear == current_linear {
-	    return Ok(());
-    }
+		return Ok(());
+	}
 
 	let mut updated_settings = voice_settings.clone();
 	updated_settings.volume = settings.device_type.to_discord(new_linear);
