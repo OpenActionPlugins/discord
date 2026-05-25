@@ -25,14 +25,12 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 					schedule_reconnect();
 				}
 			}
-			ReturnedEvent::VoiceSettingsUpdate(voice) => {
-				apply_voice_state(voice.mute, voice.deaf).await
-			}
+			ReturnedEvent::VoiceSettingsUpdate(voice) => apply_voice_state(&voice).await,
 			_ => {}
 		},
 		ReceivedItem::Command(command) => {
 			if let ReturnedCommand::GetVoiceSettings(voice) = *command {
-				apply_voice_state(voice.mute, voice.deaf).await;
+				apply_voice_state(&voice).await;
 			}
 		}
 		ReceivedItem::SocketClosed => {
@@ -42,11 +40,21 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 	}
 }
 
-async fn apply_voice_state(mute: Option<bool>, deaf: Option<bool>) {
-	let mute = mute.unwrap_or(false);
-	let deaf = deaf.unwrap_or(false);
+async fn apply_voice_state(settings: &discord_ipc_rust::models::shared::voice::VoiceSettings) {
+	let mute = settings.mute.unwrap_or(false);
+	let deaf = settings.deaf.unwrap_or(false);
 	update_action_state(crate::actions::ToggleMuteAction::UUID, mute).await;
 	update_action_state(crate::actions::ToggleDeafenAction::UUID, deaf).await;
+
+	if let Some(mode) = &settings.mode {
+		let is_ptt = mode.mode_type == "PUSH_TO_TALK";
+		update_action_state(crate::actions::ToggleVoiceInputModeAction::UUID, is_ptt).await;
+		*crate::actions::current_voice_mode().write().await =
+			Some(discord_ipc_rust::models::shared::voice::VoiceSettingsMode {
+				mode_type: mode.mode_type.clone(),
+				..*mode
+			});
+	}
 }
 
 async fn update_action_state(action_uuid: ActionUuid, active: bool) {

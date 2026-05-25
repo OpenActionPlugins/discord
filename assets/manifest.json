@@ -57,6 +57,16 @@
 			"DisableAutomaticStates": true,
 			"SupportedInMultiActions": false,
 			"States": [{ "Image": "actions/pushtotalk_0" }, { "Image": "actions/pushtotalk_1" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.togglevoiceinputmode",
+			"Name": "Toggle Voice Input Mode",
+			"Icon": "actions/ptttoggle_0",
+			"Tooltip": "Switch between the Push to Talk and Voice Activity voice input modes",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/simple.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/ptttoggle_0" }, { "Image": "actions/ptttoggle_1" }]
 		}
 	]
 }

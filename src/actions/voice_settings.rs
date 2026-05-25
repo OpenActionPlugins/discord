@@ -1,10 +1,19 @@
 use crate::client::discord_client;
 
 use std::collections::HashMap;
+use std::sync::OnceLock;
 use std::sync::atomic::Ordering::Relaxed;
 
 use discord_ipc_rust::models::send::commands::{SentCommand, SetVoiceSettingsArgs};
+use discord_ipc_rust::models::shared::voice::VoiceSettingsMode;
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
+use tokio::sync::RwLock;
+
+// Last-known voice mode from Discord, updated via RPC events.
+pub fn current_voice_mode() -> &'static RwLock<Option<VoiceSettingsMode>> {
+	static MODE: OnceLock<RwLock<Option<VoiceSettingsMode>>> = OnceLock::new();
+	MODE.get_or_init(|| RwLock::new(None))
+}
 
 // Centralize the voice settings RPC call and Stream Deck feedback logic.
 async fn update_voice_setting(
@@ -163,6 +172,49 @@ impl Action for PushToTalkAction {
 				..Default::default()
 			},
 			0,
+		)
+		.await
+	}
+}
+
+pub struct ToggleVoiceInputModeAction;
+#[async_trait]
+impl Action for ToggleVoiceInputModeAction {
+	const UUID: ActionUuid = "me.amankhanna.oadiscord.togglevoiceinputmode";
+	type Settings = HashMap<String, String>;
+
+	async fn key_up(
+		&self,
+		instance: &Instance,
+		_settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		let mode_lock = current_voice_mode().read().await;
+		let Some(current_mode) = mode_lock.as_ref() else {
+			log::error!("Voice mode not yet known");
+			instance.show_alert().await?;
+			return Ok(());
+		};
+
+		let is_ptt = current_mode.mode_type == "PUSH_TO_TALK";
+		let new_type = if is_ptt {
+			"VOICE_ACTIVITY"
+		} else {
+			"PUSH_TO_TALK"
+		};
+
+		let new_mode = VoiceSettingsMode {
+			mode_type: new_type.to_owned(),
+			..*current_mode
+		};
+		drop(mode_lock);
+
+		update_voice_setting(
+			instance,
+			SetVoiceSettingsArgs {
+				mode: Some(new_mode),
+				..Default::default()
+			},
+			if is_ptt { 0 } else { 1 },
 		)
 		.await
 	}
