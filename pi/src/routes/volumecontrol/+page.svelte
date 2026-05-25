@@ -11,7 +11,9 @@
 	const DEFAULT_AUDIO_DEVICE_TYPE: AudioDeviceType = "Output";
 	const DEFAULT_STEP_DIRECTION: StepDirection = "Increase";
 
-	let selectedAudioDeviceType: AudioDeviceType = $derived($actionSettings.device_type ?? DEFAULT_AUDIO_DEVICE_TYPE);
+	let selectedAudioDeviceType: AudioDeviceType = $derived(
+		$actionSettings.device_type ?? DEFAULT_AUDIO_DEVICE_TYPE,
+	);
 	let selectedStepDirection: StepDirection = $derived(
 		$actionSettings.step_direction ?? DEFAULT_STEP_DIRECTION,
 	);
