@@ -9,7 +9,7 @@ use discord_ipc_rust::models::shared::voice::VoiceSettingsMode;
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 use tokio::sync::RwLock;
 
-/// Last-known voice mode from Discord, updated via RPC events.
+// Last-known voice mode from Discord, updated via RPC events.
 pub fn current_voice_mode() -> &'static RwLock<Option<VoiceSettingsMode>> {
 	static MODE: OnceLock<RwLock<Option<VoiceSettingsMode>>> = OnceLock::new();
 	MODE.get_or_init(|| RwLock::new(None))
@@ -177,10 +177,10 @@ impl Action for PushToTalkAction {
 	}
 }
 
-pub struct TogglePushToTalkAction;
+pub struct ToggleVoiceInputModeAction;
 #[async_trait]
-impl Action for TogglePushToTalkAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.togglepushtotalk";
+impl Action for ToggleVoiceInputModeAction {
+	const UUID: ActionUuid = "me.amankhanna.oadiscord.togglevoiceinputmode";
 	type Settings = HashMap<String, String>;
 
 	async fn key_up(
@@ -204,9 +204,7 @@ impl Action for TogglePushToTalkAction {
 
 		let new_mode = VoiceSettingsMode {
 			mode_type: new_type.to_owned(),
-			auto_threshold: current_mode.auto_threshold,
-			threshold: current_mode.threshold,
-			delay: current_mode.delay,
+			..*current_mode
 		};
 		drop(mode_lock);
 

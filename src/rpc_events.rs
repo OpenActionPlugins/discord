@@ -25,9 +25,7 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 					schedule_reconnect();
 				}
 			}
-			ReturnedEvent::VoiceSettingsUpdate(voice) => {
-				apply_voice_state(&voice).await
-			}
+			ReturnedEvent::VoiceSettingsUpdate(voice) => apply_voice_state(&voice).await,
 			_ => {}
 		},
 		ReceivedItem::Command(command) => {
@@ -50,15 +48,12 @@ async fn apply_voice_state(settings: &discord_ipc_rust::models::shared::voice::V
 
 	if let Some(mode) = &settings.mode {
 		let is_ptt = mode.mode_type == "PUSH_TO_TALK";
-		update_action_state(crate::actions::TogglePushToTalkAction::UUID, is_ptt).await;
-		*crate::actions::current_voice_mode().write().await = Some(
-			discord_ipc_rust::models::shared::voice::VoiceSettingsMode {
+		update_action_state(crate::actions::ToggleVoiceInputModeAction::UUID, is_ptt).await;
+		*crate::actions::current_voice_mode().write().await =
+			Some(discord_ipc_rust::models::shared::voice::VoiceSettingsMode {
 				mode_type: mode.mode_type.clone(),
-				auto_threshold: mode.auto_threshold,
-				threshold: mode.threshold,
-				delay: mode.delay,
-			},
-		);
+				..*mode
+			});
 	}
 }
 
