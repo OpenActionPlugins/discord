@@ -66,9 +66,9 @@ impl Action for VolumeControlAction {
 		if let Some(voice_settings) =
 			get_current_voice_settings(instance, &settings.device_type).await?
 		{
-			instance
-				.set_state(if voice_settings.enable { 0 } else { 1 })
-				.await?;
+			let state = new_state(settings, voice_settings);
+
+			instance.set_state(state as u16).await?;
 		}
 
 		Ok(())
@@ -184,7 +184,7 @@ impl Action for VolumeControlAction {
 			}
 		};
 
-		update_voice_setting(instance, args, if new_toggle { 1 } else { 0 }).await
+		update_voice_setting(instance, args, new_state(settings, voice_settings)).await
 	}
 }
 
@@ -268,5 +268,14 @@ async fn adjust_volume(
 	updated_settings.volume = settings.device_type.to_discord(new_linear);
 	let args = volume_args(updated_settings, &settings.device_type);
 
-	update_voice_setting(instance, args, if voice_settings.enable { 0 } else { 1 }).await
+	update_voice_setting(instance, args, new_state(settings, voice_settings)).await
+}
+
+fn new_state(settings: &VolumeControlSettings, voice_settings: VoiceSettingsWrapper) -> usize {
+	match (settings.device_type.is_input(), voice_settings.enable) {
+		(true, true) => 0,
+		(true, false) => 1,
+		(false, true) => 2,
+		(false, false) => 3,
+	}
 }

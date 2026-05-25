@@ -91,12 +91,12 @@
 		{
 			"UUID": "me.amankhanna.oadiscord.volumecontrol",
 			"Name": "Volume Control",
-			"Icon": "actions/volumeControl_0",
+			"Icon": "actions/volumeControl",
 			"Tooltip": "Control your volume with an encoder or by holding down a key",
 			"Controllers": ["Keypad", "Encoder"],
 			"PropertyInspectorPath": "pi/volumecontrol.html",
 			"DisableAutomaticStates": true,
-			"States": [{ "Image": "actions/volumeControl_0" }, { "Image": "actions/volumeControl_1" }]
+			"States": [{ "Image": "actions/mute_0" }, { "Image": "actions/mute_1" }, { "Image": "actions/deafen_0" }, { "Image": "actions/deafen_1" }]
 		}
 	]
 }
