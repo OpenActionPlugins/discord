@@ -93,6 +93,12 @@ async fn setup_discord_client(
 	.await
 	.map_err(|e| format!("Failed to subscribe to voice updates: {}", e))?;
 
+	rpc.emit_command(&SentCommand::Subscribe(
+		SubscribeableEvent::ScreenshareStateUpdate,
+	))
+	.await
+	.map_err(|e| format!("Failed to subscribe to screen share state: {}", e))?;
+
 	// Request current voice settings so buttons reflect the initial state immediately.
 	rpc.emit_command(&SentCommand::GetVoiceSettings)
 		.await
@@ -186,7 +192,12 @@ async fn create_discord_client(settings: &DiscordSettings) -> Result<DiscordIpcC
 
 		rpc.emit_command(&SentCommand::Authorize(AuthorizeArgs {
 			client_id: settings.client_id.clone(),
-			scopes: vec!["rpc".to_owned(), "identify".to_owned()],
+			scopes: vec![
+				"rpc".to_owned(),
+				"rpc.screenshare.read".to_owned(),
+				"rpc.screenshare.write".to_owned(),
+				"identify".to_owned(),
+			],
 			rpc_token: None,
 			username: None,
 		}))
