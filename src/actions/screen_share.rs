@@ -1,15 +1,16 @@
 use crate::client::discord_client;
 
+use std::collections::HashMap;
+
 use discord_ipc_rust::models::send::commands::{SentCommand, ToggleScreenshareArgs};
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
-use serde_json::Value;
 
 pub struct ToggleScreenshareAction;
 
 #[async_trait]
 impl Action for ToggleScreenshareAction {
 	const UUID: ActionUuid = "me.amankhanna.oadiscord.togglescreenshare";
-	type Settings = Value;
+	type Settings = HashMap<String, String>;
 
 	async fn key_up(
 		&self,
