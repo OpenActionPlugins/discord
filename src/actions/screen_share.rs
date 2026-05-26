@@ -1,6 +1,6 @@
 use crate::client::discord_client;
 
-use discord_ipc_rust::models::send::commands::SentCommand;
+use discord_ipc_rust::models::send::commands::{SentCommand, ToggleScreenshareArgs};
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 use serde_json::Value;
 
@@ -23,7 +23,12 @@ impl Action for ToggleScreenshareAction {
 			return Ok(());
 		};
 
-		if let Err(e) = client.emit_command(&SentCommand::ToggleScreenshare).await {
+		if let Err(e) = client
+			.emit_command(&SentCommand::ToggleScreenshare(ToggleScreenshareArgs {
+				pid: None,
+			}))
+			.await
+		{
 			log::error!("Failed to toggle screenshare: {}", e);
 			instance.show_alert().await?;
 		}
