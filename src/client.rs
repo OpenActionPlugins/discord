@@ -97,7 +97,7 @@ async fn setup_discord_client(
 		SubscribeableEvent::ScreenshareStateUpdate,
 	))
 	.await
-	.map_err(|e| format!("Failed to subscribe to screenshare state: {}", e))?;
+	.map_err(|e| format!("Failed to subscribe to screen share state: {}", e))?;
 
 	// Request current voice settings so buttons reflect the initial state immediately.
 	rpc.emit_command(&SentCommand::GetVoiceSettings)

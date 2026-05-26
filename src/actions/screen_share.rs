@@ -30,7 +30,7 @@ impl Action for ToggleScreenshareAction {
 			}))
 			.await
 		{
-			log::error!("Failed to toggle screenshare: {}", e);
+			log::error!("Failed to toggle screen share: {}", e);
 			instance.show_alert().await?;
 		}
 
