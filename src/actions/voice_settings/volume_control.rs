@@ -1,5 +1,4 @@
 use super::{update_voice_setting, voice_input_settings, voice_output_settings};
-use crate::actions::KeypadActionType::SetVolume;
 use crate::utils::{VoiceDeviceType, VoiceSettingsWrapper};
 
 use std::sync::LazyLock;
@@ -22,9 +21,9 @@ static HOLD_ACTIVE_INSTANCE: LazyLock<Mutex<Option<InstanceId>>> =
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 pub enum KeypadActionType {
 	#[default]
-	IncreaseVolume,
-	DecreaseVolume,
-	SetVolume,
+	Increase,
+	Decrease,
+	Set,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -110,9 +109,9 @@ impl Action for VolumeControlAction {
 		};
 
 		let (delta, set) = match settings.keypad_action_type {
-			KeypadActionType::IncreaseVolume => (settings.step_size as f32, false),
-			KeypadActionType::DecreaseVolume => (-(settings.step_size as f32), false),
-			KeypadActionType::SetVolume => (settings.set_volume as f32, true),
+			KeypadActionType::Increase => (settings.step_size as f32, false),
+			KeypadActionType::Decrease => (-(settings.step_size as f32), false),
+			KeypadActionType::Set => (settings.set_volume as f32, true),
 		};
 
 		if start_loop {
@@ -292,7 +291,7 @@ async fn update_state(
 
 fn new_state(settings: &VolumeControlSettings, voice_settings: VoiceSettingsWrapper) -> usize {
 	let is_input = settings.device_type.is_input();
-	let enabled = settings.keypad_action_type == SetVolume || voice_settings.enable;
+	let enabled = settings.keypad_action_type == KeypadActionType::Set || voice_settings.enable;
 
 	match (is_input, enabled) {
 		(true, true) => 0,

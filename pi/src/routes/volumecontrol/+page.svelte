@@ -4,7 +4,7 @@
 	import { clamp } from "$lib/utils/math";
 
 	type AudioDeviceType = "Input" | "Output";
-	type KeypadActionType = "IncreaseVolume" | "DecreaseVolume" | "SetVolume";
+	type KeypadActionType = "Increase" | "Decrease" | "Set";
 
 	const MIN_STEP_SIZE = 1;
 	const MAX_STEP_SIZE = 10;
@@ -14,7 +14,7 @@
 	const DEFAULT_STEP_SIZE = 2;
 	const DEFAULT_SET_VOLUME = 80;
 	const DEFAULT_AUDIO_DEVICE_TYPE: AudioDeviceType = "Input";
-	const DEFAULT_KEYPAD_ACTION_TYPE: KeypadActionType = "IncreaseVolume";
+	const DEFAULT_KEYPAD_ACTION_TYPE: KeypadActionType = "Increase";
 
 	function getClampedNumber(
 		value: unknown,
@@ -34,7 +34,7 @@
 	let selectedKeypadActionType: KeypadActionType = $derived(
 		$actionSettings.keypad_action_type ?? DEFAULT_KEYPAD_ACTION_TYPE,
 	);
-	let isSetVolume = $derived(selectedKeypadActionType === "SetVolume");
+	let isSetVolume = $derived(selectedKeypadActionType === "Set");
 	let maxSetVolume = $derived(
 		selectedAudioDeviceType === "Output"
 			? MAX_SET_VOLUME_OUTPUT
@@ -119,9 +119,9 @@
 					onchange={updateKeypadActionType}
 					class="w-full"
 				>
-					<option value="IncreaseVolume">Increase Volume</option>
-					<option value="DecreaseVolume">Decrease Volume</option>
-					<option value="SetVolume">Set Volume</option>
+					<option value="Increase">Increase Volume</option>
+					<option value="Decrease">Decrease Volume</option>
+					<option value="Set">Set Volume</option>
 				</select>
 			</div>
 			<p class="settings-description">
