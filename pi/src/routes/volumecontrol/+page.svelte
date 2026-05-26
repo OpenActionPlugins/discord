@@ -85,9 +85,7 @@
 			(event.target as HTMLInputElement).value,
 			DEFAULT_SET_VOLUME,
 			MIN_SET_VOLUME,
-			selectedAudioDeviceType === "Output"
-				? MAX_SET_VOLUME_OUTPUT
-				: MAX_SET_VOLUME_INPUT,
+			maxSetVolume,
 		);
 		$actionSettings = { ...$actionSettings, set_volume };
 	}
