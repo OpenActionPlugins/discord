@@ -27,3 +27,7 @@ select {
 .settings-grid {
 	@apply grid grid-cols-[250px_1fr] items-start gap-x-3 gap-y-2;
 }
+
+.settings-description {
+    @apply text-sm text-neutral-400;
+}

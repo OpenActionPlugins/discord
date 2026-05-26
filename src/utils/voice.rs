@@ -9,8 +9,8 @@ pub struct VoiceSettingsWrapper {
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 pub enum VoiceDeviceType {
-	Input,
 	#[default]
+	Input,
 	Output,
 }
 

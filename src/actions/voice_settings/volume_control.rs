@@ -1,4 +1,5 @@
 use super::{update_voice_setting, voice_input_settings, voice_output_settings};
+use crate::actions::KeypadActionType::SetVolume;
 use crate::utils::{VoiceDeviceType, VoiceSettingsWrapper};
 
 use std::sync::LazyLock;
@@ -19,35 +20,29 @@ static HOLD_ACTIVE_INSTANCE: LazyLock<Mutex<Option<InstanceId>>> =
 	LazyLock::new(|| Mutex::new(None));
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
-pub enum StepDirection {
+pub enum KeypadActionType {
 	#[default]
-	Increase,
-	Decrease,
-}
-
-impl StepDirection {
-	fn multiplier(&self) -> f32 {
-		match self {
-			Self::Increase => 1.0,
-			Self::Decrease => -1.0,
-		}
-	}
+	IncreaseVolume,
+	DecreaseVolume,
+	SetVolume,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct VolumeControlSettings {
 	pub device_type: VoiceDeviceType,
-	pub step_direction: StepDirection,
-	pub steps: u8,
+	pub keypad_action_type: KeypadActionType,
+	pub step_size: u8,
+	pub set_volume: u8,
 }
 
 impl Default for VolumeControlSettings {
 	fn default() -> Self {
 		Self {
 			device_type: VoiceDeviceType::default(),
-			step_direction: StepDirection::default(),
-			steps: 2,
+			keypad_action_type: KeypadActionType::default(),
+			step_size: 2,
+			set_volume: 80,
 		}
 	}
 }
@@ -63,15 +58,15 @@ impl Action for VolumeControlAction {
 		instance: &Instance,
 		settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		if let Some(voice_settings) =
-			get_current_voice_settings(instance, &settings.device_type).await?
-		{
-			let state = new_state(settings, voice_settings);
+		update_state(instance, settings).await
+	}
 
-			instance.set_state(state as u16).await?;
-		}
-
-		Ok(())
+	async fn will_appear(
+		&self,
+		instance: &Instance,
+		settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		update_state(instance, settings).await
 	}
 
 	async fn will_disappear(
@@ -114,7 +109,11 @@ impl Action for VolumeControlAction {
 			}
 		};
 
-		let delta = (settings.steps as f32) * settings.step_direction.multiplier();
+		let (delta, set) = match settings.keypad_action_type {
+			KeypadActionType::IncreaseVolume => (settings.step_size as f32, false),
+			KeypadActionType::DecreaseVolume => (-(settings.step_size as f32), false),
+			KeypadActionType::SetVolume => (settings.set_volume as f32, true),
+		};
 
 		if start_loop {
 			use tokio::time::sleep;
@@ -135,7 +134,7 @@ impl Action for VolumeControlAction {
 				sleep(HOLD_INITIAL_DELAY).await;
 
 				while HOLD_ACTIVE_INSTANCE.lock().await.as_ref() == Some(&id) {
-					if let Err(e) = adjust_volume(instance.as_ref(), &settings, delta).await {
+					if let Err(e) = adjust_volume(instance.as_ref(), &settings, delta, set).await {
 						log::error!("Failed to adjust volume while holding key down: {e}");
 						let _ = instance.show_alert().await;
 					}
@@ -145,7 +144,7 @@ impl Action for VolumeControlAction {
 			});
 		}
 
-		adjust_volume(instance, settings, delta).await
+		adjust_volume(instance, settings, delta, set).await
 	}
 
 	async fn dial_rotate(
@@ -155,9 +154,9 @@ impl Action for VolumeControlAction {
 		ticks: i16,
 		_pressed: bool,
 	) -> OpenActionResult<()> {
-		let delta = (settings.steps as f32) * ticks as f32;
+		let delta = (settings.step_size as f32) * ticks as f32;
 
-		adjust_volume(instance, settings, delta).await
+		adjust_volume(instance, settings, delta, false).await
 	}
 
 	async fn dial_up(
@@ -184,7 +183,12 @@ impl Action for VolumeControlAction {
 			}
 		};
 
-		update_voice_setting(instance, args, new_state(settings, voice_settings)).await
+		let updated_settings = VoiceSettingsWrapper {
+			enable: new_toggle,
+			..voice_settings
+		};
+
+		update_voice_setting(instance, args, new_state(settings, updated_settings)).await
 	}
 }
 
@@ -205,10 +209,7 @@ async fn get_current_voice_settings(
 	};
 
 	if voice_settings.is_none() {
-		log::error!(
-			"No voice settings found for type {:?}, likely not in a voice channel",
-			device_type
-		);
+		log::error!("No voice settings found for type {:?}", device_type);
 		instance.show_alert().await?;
 		return Ok(None);
 	}
@@ -252,27 +253,48 @@ async fn adjust_volume(
 	instance: &Instance,
 	settings: &VolumeControlSettings,
 	delta: f32,
+	set: bool,
 ) -> OpenActionResult<()> {
 	let Some(voice_settings) = get_current_voice_settings(instance, &settings.device_type).await?
 	else {
 		return Ok(());
 	};
 	let current_linear = settings.device_type.to_linear(voice_settings.volume);
-	let new_linear = (current_linear + delta).clamp(0.0, settings.device_type.max_volume());
+	let new_linear = if set { delta } else { current_linear + delta }
+		.clamp(0.0, settings.device_type.max_volume());
 
 	if new_linear == current_linear {
 		return Ok(());
 	}
 
-	let mut updated_settings = voice_settings.clone();
-	updated_settings.volume = settings.device_type.to_discord(new_linear);
-	let args = volume_args(updated_settings, &settings.device_type);
+	let updated_settings = VoiceSettingsWrapper {
+		volume: settings.device_type.to_discord(new_linear),
+		..voice_settings
+	};
+	let args = volume_args(updated_settings.clone(), &settings.device_type);
 
-	update_voice_setting(instance, args, new_state(settings, voice_settings)).await
+	update_voice_setting(instance, args, new_state(settings, updated_settings)).await
+}
+
+async fn update_state(
+	instance: &Instance,
+	settings: &VolumeControlSettings,
+) -> OpenActionResult<()> {
+	if let Some(voice_settings) =
+		get_current_voice_settings(instance, &settings.device_type).await?
+	{
+		let state = new_state(settings, voice_settings.clone());
+		instance.set_state(state as u16).await?;
+	}
+
+	Ok(())
 }
 
 fn new_state(settings: &VolumeControlSettings, voice_settings: VoiceSettingsWrapper) -> usize {
-	match (settings.device_type.is_input(), voice_settings.enable) {
+	let is_input = settings.device_type.is_input();
+	let enabled = settings.keypad_action_type == SetVolume || voice_settings.enable;
+
+	match (is_input, enabled) {
 		(true, true) => 0,
 		(true, false) => 1,
 		(false, true) => 2,

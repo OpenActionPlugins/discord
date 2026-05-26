@@ -1,44 +1,95 @@
 <script lang="ts">
 	import { actionSettings } from "@openaction/svelte-pi";
 	import ApplicationSettings from "$lib/ApplicationSettings.svelte";
+	import { clamp } from "$lib/utils/math";
 
 	type AudioDeviceType = "Input" | "Output";
-	type StepDirection = "Increase" | "Decrease";
+	type KeypadActionType = "IncreaseVolume" | "DecreaseVolume" | "SetVolume";
 
-	const MIN_STEPS = 1;
-	const MAX_STEPS = 10;
-	const DEFAULT_STEPS = 2;
-	const DEFAULT_AUDIO_DEVICE_TYPE: AudioDeviceType = "Output";
-	const DEFAULT_STEP_DIRECTION: StepDirection = "Increase";
+	const MIN_STEP_SIZE = 1;
+	const MAX_STEP_SIZE = 10;
+	const MIN_SET_VOLUME = 0;
+	const MAX_SET_VOLUME_INPUT = 100;
+	const MAX_SET_VOLUME_OUTPUT = 200;
+	const DEFAULT_STEP_SIZE = 2;
+	const DEFAULT_SET_VOLUME = 80;
+	const DEFAULT_AUDIO_DEVICE_TYPE: AudioDeviceType = "Input";
+	const DEFAULT_KEYPAD_ACTION_TYPE: KeypadActionType = "IncreaseVolume";
+
+	function getClampedNumber(
+		value: unknown,
+		defaultValue: number,
+		min: number,
+		max: number,
+	) {
+		const num = Number(value);
+		if (!Number.isFinite(num)) return defaultValue;
+
+		return clamp(Math.round(num), min, max);
+	}
 
 	let selectedAudioDeviceType: AudioDeviceType = $derived(
 		$actionSettings.device_type ?? DEFAULT_AUDIO_DEVICE_TYPE,
 	);
-	let selectedStepDirection: StepDirection = $derived(
-		$actionSettings.step_direction ?? DEFAULT_STEP_DIRECTION,
+	let selectedKeypadActionType: KeypadActionType = $derived(
+		$actionSettings.keypad_action_type ?? DEFAULT_KEYPAD_ACTION_TYPE,
 	);
-	let currentSteps = $derived.by(() => {
-		const value = Number($actionSettings.steps ?? DEFAULT_STEPS);
-		if (!Number.isFinite(value)) return DEFAULT_STEPS;
-		return Math.max(MIN_STEPS, Math.min(MAX_STEPS, Math.round(value)));
-	});
+	let isSetVolume = $derived(selectedKeypadActionType === "SetVolume");
+	let maxSetVolume = $derived(
+		selectedAudioDeviceType === "Output"
+			? MAX_SET_VOLUME_OUTPUT
+			: MAX_SET_VOLUME_INPUT,
+	);
+
+	let currentStepSize = $derived.by(() =>
+		getClampedNumber(
+			$actionSettings.step_size,
+			DEFAULT_STEP_SIZE,
+			MIN_STEP_SIZE,
+			MAX_STEP_SIZE,
+		),
+	);
+	let currentSetVolume = $derived.by(() =>
+		getClampedNumber(
+			$actionSettings.set_volume,
+			DEFAULT_SET_VOLUME,
+			MIN_SET_VOLUME,
+			maxSetVolume,
+		),
+	);
 
 	function updateAudioDeviceType(event: Event) {
-		const value = (event.target as HTMLSelectElement).value as AudioDeviceType;
-		$actionSettings = { ...$actionSettings, device_type: value };
+		const device_type = (event.target as HTMLSelectElement)
+			.value as AudioDeviceType;
+		$actionSettings = { ...$actionSettings, device_type };
 	}
 
-	function updateStepDirection(event: Event) {
-		const value = (event.target as HTMLSelectElement).value as StepDirection;
-		$actionSettings = { ...$actionSettings, step_direction: value };
+	function updateKeypadActionType(event: Event) {
+		const keypad_action_type = (event.target as HTMLSelectElement)
+			.value as KeypadActionType;
+		$actionSettings = { ...$actionSettings, keypad_action_type };
 	}
 
-	function updateSteps(event: Event) {
-		const value = Number((event.target as HTMLInputElement).value);
-		if (!Number.isFinite(value)) return;
+	function updateStepSize(event: Event) {
+		const step_size = getClampedNumber(
+			(event.target as HTMLInputElement).value,
+			DEFAULT_STEP_SIZE,
+			MIN_STEP_SIZE,
+			MAX_STEP_SIZE,
+		);
+		$actionSettings = { ...$actionSettings, step_size };
+	}
 
-		const steps = Math.max(MIN_STEPS, Math.min(MAX_STEPS, Math.round(value)));
-		$actionSettings = { ...$actionSettings, steps };
+	function updateSetVolume(event: Event) {
+		const set_volume = getClampedNumber(
+			(event.target as HTMLInputElement).value,
+			DEFAULT_SET_VOLUME,
+			MIN_SET_VOLUME,
+			selectedAudioDeviceType === "Output"
+				? MAX_SET_VOLUME_OUTPUT
+				: MAX_SET_VOLUME_INPUT,
+		);
+		$actionSettings = { ...$actionSettings, set_volume };
 	}
 </script>
 
@@ -61,41 +112,72 @@
 	</div>
 
 	<div class="settings-grid">
-		<label for="steps" class="pt-1 text-sm">Volume Step Direction</label>
+		<label for="keypadActionType" class="pt-1 text-sm">Keypad Action</label>
 		<div class="space-y-1">
 			<div class="select-wrapper">
 				<select
-					id="stepDirection"
-					value={selectedStepDirection}
-					onchange={updateStepDirection}
+					id="keypadActionType"
+					value={selectedKeypadActionType}
+					onchange={updateKeypadActionType}
 					class="w-full"
 				>
-					<option value="Increase">Increase</option>
-					<option value="Decrease">Decrease</option>
+					<option value="IncreaseVolume">Increase Volume</option>
+					<option value="DecreaseVolume">Decrease Volume</option>
+					<option value="SetVolume">Set Volume</option>
 				</select>
 			</div>
-			<p class="text-xs text-neutral-400">
-				Keypad only: choose to raise or lower volume.
+			<p class="settings-description">
+				Keypad only!! Does not affect dial action on press.
 			</p>
 		</div>
 	</div>
 
-	<div class="settings-grid">
-		<label for="steps" class="pt-1 text-sm">Volume Steps</label>
+	{#if isSetVolume}
+		<div class="settings-grid">
+			<label for="setVolume" class="pt-1 text-sm">Set Volume Level</label>
+			<div class="space-y-1">
+				<div class="flex items-center justify-between text-xs">
+					<span>{currentSetVolume}%</span>
+				</div>
+				<input
+					id="setVolume"
+					type="range"
+					min={MIN_SET_VOLUME}
+					max={maxSetVolume}
+					step="1"
+					value={currentSetVolume}
+					oninput={updateSetVolume}
+					class="h-1.5 w-full cursor-pointer accent-blue-500"
+				/>
+				<p class="settings-description">
+					Volume set by keypad press.
+				</p>
+			</div>
+		</div>
+	{/if}
+
+	<div class="settings-grid" class:opacity-50={isSetVolume}>
+		<label for="stepSize" class="pt-1 text-sm">Volume Step Size</label>
 		<div class="space-y-1">
 			<div class="flex items-center justify-between text-xs">
-				<span>{currentSteps}</span>
+				<span>{currentStepSize}%</span>
 			</div>
 			<input
-				id="steps"
+				id="stepSize"
 				type="range"
-				min={MIN_STEPS}
-				max={MAX_STEPS}
+				min={MIN_STEP_SIZE}
+				max={MAX_STEP_SIZE}
 				step="1"
-				value={currentSteps}
-				oninput={updateSteps}
+				value={currentStepSize}
+				oninput={updateStepSize}
+				disabled={isSetVolume}
 				class="h-1.5 w-full cursor-pointer accent-blue-500"
+				class:opacity-50={isSetVolume}
+				class:cursor-not-allowed={isSetVolume}
 			/>
+			<p class="settings-description" class:opacity-50={isSetVolume}>
+				Volume adjustment per step (increase/decrease only).
+			</p>
 		</div>
 	</div>
 </div>
