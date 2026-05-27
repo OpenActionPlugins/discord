@@ -97,6 +97,16 @@
 			"PropertyInspectorPath": "pi/volumecontrol.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/volumeControl" }]
-		}
+		},
+		{
+      "UUID": "me.amankhanna.oadiscord.setaudiodevice",
+      "Name": "Set Audio Device",
+      "Icon": "actions/headphonesAndMicrophone",
+      "Tooltip": "Switch Input/Output devices",
+      "Controllers": ["Keypad"],
+      "PropertyInspectorPath": "pi/setaudiodevice.html",
+      "DisableAutomaticStates": true,
+      "States": [{ "Image": "actions/headphonesAndMicrophone" }]
+    }
 	]
 }

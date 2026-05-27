@@ -15,3 +15,4 @@ An OpenAction ([OpenDeck](https://github.com/nekename/OpenDeck) / [Tacto](https:
 - Toggle Video
 - Toggle Screen Share
 - Volume Control
+- Set Audio Device

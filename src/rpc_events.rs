@@ -71,6 +71,7 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 			device_type: AudioDeviceType::Input,
 			device_id: input.device_id,
 			volume: input.volume,
+			available_devices: input.available_devices,
 		});
 	}
 
@@ -81,6 +82,7 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 			device_type: AudioDeviceType::Output,
 			device_id: output.device_id,
 			volume: output.volume,
+			available_devices: output.available_devices,
 		});
 	}
 }
