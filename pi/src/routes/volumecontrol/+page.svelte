@@ -40,6 +40,9 @@
 		const device_type = (event.target as HTMLSelectElement)
 			.value as AudioDeviceType;
 		$actionSettings = { ...$actionSettings, device_type };
+		if (currentSetVolume > maxSetVolume) {
+			$actionSettings = { ...$actionSettings, set_volume: maxSetVolume };
+		}
 	}
 
 	function updateKeypadActionType(event: Event) {
