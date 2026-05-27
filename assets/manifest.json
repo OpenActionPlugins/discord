@@ -92,7 +92,7 @@
 			"UUID": "me.amankhanna.oadiscord.volumecontrol",
 			"Name": "Volume Control",
 			"Icon": "actions/volumeControl",
-			"Tooltip": "Control your volume with an encoder or by holding down a key",
+			"Tooltip": "Control the volume levels of audio input and output devices",
 			"Controllers": ["Keypad", "Encoder"],
 			"PropertyInspectorPath": "pi/volumecontrol.html",
 			"DisableAutomaticStates": true,
