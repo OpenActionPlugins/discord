@@ -85,6 +85,7 @@ impl Action for SetAudioDeviceAction {
 		Ok(())
 	}
 }
+
 async fn apply_device_update(
 	instance: &Instance,
 	device_type: &AudioDeviceType,
