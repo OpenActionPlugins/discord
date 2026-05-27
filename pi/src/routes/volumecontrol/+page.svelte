@@ -98,7 +98,7 @@
 
 	{#if isSetVolume}
 		<div class="grid grid-cols-[250px_1fr] items-center">
-			<label for="setVolume" class="text-sm">Set Volume Level</label>
+			<label for="setVolume" class="text-sm">Volume Level</label>
 			<div class="flex flex-row items-center space-x-4">
 				<input
 					id="setVolume"
