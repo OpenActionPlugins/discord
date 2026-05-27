@@ -15,7 +15,7 @@
 	let outputs: AudioDevice[] = $state([]);
 
 	let selectedDeviceType: AudioDeviceType = $derived(
-		$actionSettings.target ?? DEFAULT_DEVICE_TYPE
+		$actionSettings.target ?? DEFAULT_DEVICE_TYPE,
 	);
 	let selectedInput = $derived($actionSettings.input_device_id ?? "");
 	let selectedOutput = $derived($actionSettings.output_device_id ?? "");
@@ -49,7 +49,7 @@
 
 <div class="space-y-4 pt-1 text-xs text-neutral-200">
 	<div class="grid grid-cols-[250px_1fr] items-center">
-		<label for="audioType" class="pt-2 text-sm">Target</label>
+		<label for="audioType" class="text-sm">Target</label>
 		<div class="space-y-2">
 			<div class="select-wrapper">
 				<select
@@ -67,8 +67,8 @@
 	</div>
 
 	{#if selectedDeviceType === "Input" || selectedDeviceType === "Both"}
-	    <div class="grid grid-cols-[250px_1fr] items-center">
-			<label for="inputDevice" class="pt-1 text-sm">Input device</label>
+		<div class="grid grid-cols-[250px_1fr] items-center">
+			<label for="inputDevice" class="text-sm">Input device</label>
 			<div class="space-y-1">
 				<div class="select-wrapper">
 					<select
@@ -91,8 +91,8 @@
 	{/if}
 
 	{#if selectedDeviceType === "Output" || selectedDeviceType === "Both"}
-	    <div class="grid grid-cols-[250px_1fr] items-center">
-			<label for="outputDevice" class="pt-1 text-sm">Output device</label>
+		<div class="grid grid-cols-[250px_1fr] items-center">
+			<label for="outputDevice" class="text-sm">Output device</label>
 			<div class="space-y-1">
 				<div class="select-wrapper">
 					<select
