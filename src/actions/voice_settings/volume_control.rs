@@ -56,7 +56,7 @@ async fn adjust_volume(
 		..device_settings
 	};
 
-	update_voice_setting(instance, updated_settings.to_voice_settings_args(), 0).await
+	update_voice_setting(instance, updated_settings.into(), 0).await
 }
 
 pub struct VolumeControlAction;

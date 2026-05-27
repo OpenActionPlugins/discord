@@ -59,21 +59,21 @@ pub struct AudioDeviceWrapper {
 	pub volume: f32,
 }
 
-impl AudioDeviceWrapper {
-	pub fn to_voice_settings_args(&self) -> SetVoiceSettingsArgs {
-		match self.device_type {
+impl From<AudioDeviceWrapper> for SetVoiceSettingsArgs {
+	fn from(value: AudioDeviceWrapper) -> Self {
+		match value.device_type {
 			AudioDeviceType::Input => SetVoiceSettingsArgs {
 				input: Some(VoiceSettingsInput {
-					device_id: self.device_id.clone(),
-					volume: self.volume,
+					device_id: value.device_id.clone(),
+					volume: value.volume,
 					available_devices: Vec::new(),
 				}),
 				..Default::default()
 			},
 			AudioDeviceType::Output => SetVoiceSettingsArgs {
 				output: Some(VoiceSettingsOutput {
-					device_id: self.device_id.clone(),
-					volume: self.volume,
+					device_id: value.device_id.clone(),
+					volume: value.volume,
 					available_devices: Vec::new(),
 				}),
 				..Default::default()
