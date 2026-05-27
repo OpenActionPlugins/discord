@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { actionSettings } from "@openaction/svelte-pi";
+
 	import ApplicationSettings from "$lib/ApplicationSettings.svelte";
-	import { clamp } from "$lib/utils/math";
 
 	type AudioDeviceType = "Input" | "Output";
 	type KeypadActionType = "Increase" | "Decrease" | "Set";
@@ -16,18 +16,6 @@
 	const DEFAULT_AUDIO_DEVICE_TYPE: AudioDeviceType = "Input";
 	const DEFAULT_KEYPAD_ACTION_TYPE: KeypadActionType = "Increase";
 
-	function getClampedNumber(
-		value: unknown,
-		defaultValue: number,
-		min: number,
-		max: number,
-	) {
-		const num = Number(value);
-		if (!Number.isFinite(num)) return defaultValue;
-
-		return clamp(Math.round(num), min, max);
-	}
-
 	let selectedAudioDeviceType: AudioDeviceType = $derived(
 		$actionSettings.device_type ?? DEFAULT_AUDIO_DEVICE_TYPE,
 	);
@@ -41,21 +29,11 @@
 			: MAX_SET_VOLUME_INPUT,
 	);
 
-	let currentStepSize = $derived.by(() =>
-		getClampedNumber(
-			$actionSettings.step_size,
-			DEFAULT_STEP_SIZE,
-			MIN_STEP_SIZE,
-			MAX_STEP_SIZE,
-		),
+	let currentStepSize = $derived(
+		$actionSettings.step_size ?? DEFAULT_STEP_SIZE,
 	);
-	let currentSetVolume = $derived.by(() =>
-		getClampedNumber(
-			$actionSettings.set_volume,
-			DEFAULT_SET_VOLUME,
-			MIN_SET_VOLUME,
-			maxSetVolume,
-		),
+	let currentSetVolume = $derived(
+		$actionSettings.set_volume ?? DEFAULT_SET_VOLUME,
 	);
 
 	function updateAudioDeviceType(event: Event) {
@@ -71,22 +49,12 @@
 	}
 
 	function updateStepSize(event: Event) {
-		const step_size = getClampedNumber(
-			(event.target as HTMLInputElement).value,
-			DEFAULT_STEP_SIZE,
-			MIN_STEP_SIZE,
-			MAX_STEP_SIZE,
-		);
+		const step_size = parseInt((event.target as HTMLInputElement).value);
 		$actionSettings = { ...$actionSettings, step_size };
 	}
 
 	function updateSetVolume(event: Event) {
-		const set_volume = getClampedNumber(
-			(event.target as HTMLInputElement).value,
-			DEFAULT_SET_VOLUME,
-			MIN_SET_VOLUME,
-			maxSetVolume,
-		);
+		const set_volume = parseInt((event.target as HTMLInputElement).value);
 		$actionSettings = { ...$actionSettings, set_volume };
 	}
 </script>
@@ -147,9 +115,7 @@
 					oninput={updateSetVolume}
 					class="h-1.5 w-full cursor-pointer accent-blue-500"
 				/>
-				<p class="settings-description">
-					Volume set by keypad press.
-				</p>
+				<p class="settings-description">Volume set by keypad press.</p>
 			</div>
 		</div>
 	{/if}
