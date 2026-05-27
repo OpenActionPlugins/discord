@@ -31,62 +31,7 @@ pub struct SetAudioDeviceSettings {
 	pub output_device_id: Option<String>,
 }
 
-pub struct SetAudioDeviceAction;
-#[async_trait]
-impl Action for SetAudioDeviceAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.setaudiodevice";
-	type Settings = SetAudioDeviceSettings;
-
-	async fn did_receive_settings(
-		&self,
-		instance: &Instance,
-		settings: &Self::Settings,
-	) -> OpenActionResult<()> {
-		send_avaliable_devices_to_pi(instance, settings).await
-	}
-
-	async fn will_appear(
-		&self,
-		instance: &Instance,
-		settings: &Self::Settings,
-	) -> OpenActionResult<()> {
-		send_avaliable_devices_to_pi(instance, settings).await
-	}
-
-	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {
-		let pairs = [
-			(
-				settings.target.requires_input(),
-				&AudioDeviceType::Input,
-				&settings.input_device_id,
-			),
-			(
-				settings.target.requires_output(),
-				&AudioDeviceType::Output,
-				&settings.output_device_id,
-			),
-		];
-
-		for (required, device_type, device_id) in pairs {
-			if !required {
-				continue;
-			}
-
-			let Some(id) = device_id.as_deref().filter(|id| !id.is_empty()) else {
-				log::error!("No device ID provided for {:?} device", device_type);
-				instance.show_alert().await?;
-				return Ok(());
-			};
-			let id = id.to_string();
-
-			apply_device_update(instance, device_type, id).await?;
-		}
-
-		Ok(())
-	}
-}
-
-async fn apply_device_update(
+async fn update_device(
 	instance: &Instance,
 	device_type: &AudioDeviceType,
 	device_id: String,
@@ -155,4 +100,59 @@ async fn send_avaliable_devices_to_pi(
 				.await,
 		})
 		.await
+}
+
+pub struct SetAudioDeviceAction;
+#[async_trait]
+impl Action for SetAudioDeviceAction {
+	const UUID: ActionUuid = "me.amankhanna.oadiscord.setaudiodevice";
+	type Settings = SetAudioDeviceSettings;
+
+	async fn did_receive_settings(
+		&self,
+		instance: &Instance,
+		settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		send_avaliable_devices_to_pi(instance, settings).await
+	}
+
+	async fn will_appear(
+		&self,
+		instance: &Instance,
+		settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		send_avaliable_devices_to_pi(instance, settings).await
+	}
+
+	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {
+		let pairs = [
+			(
+				settings.target.requires_input(),
+				&AudioDeviceType::Input,
+				&settings.input_device_id,
+			),
+			(
+				settings.target.requires_output(),
+				&AudioDeviceType::Output,
+				&settings.output_device_id,
+			),
+		];
+
+		for (required, device_type, device_id) in pairs {
+			if !required {
+				continue;
+			}
+
+			let Some(id) = device_id.as_deref().filter(|id| !id.is_empty()) else {
+				log::error!("No device ID provided for {:?} device", device_type);
+				instance.show_alert().await?;
+				return Ok(());
+			};
+			let id = id.to_string();
+
+			update_device(instance, device_type, id).await?;
+		}
+
+		Ok(())
+	}
 }
