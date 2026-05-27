@@ -27,7 +27,7 @@ impl Default for VolumeControlSettings {
 			device_type: AudioDeviceType::Input,
 			action_type: VolumeControlActionType::default(),
 			step_size: 5,
-			set_volume: 80,
+			set_volume: 100,
 		}
 	}
 }
