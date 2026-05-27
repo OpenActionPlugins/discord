@@ -7,11 +7,11 @@
 	type KeypadActionType = "Increase" | "Decrease" | "Set";
 
 	const MIN_STEP_SIZE = 1;
-	const MAX_STEP_SIZE = 10;
+	const MAX_STEP_SIZE = 100;
 	const MIN_SET_VOLUME = 0;
 	const MAX_SET_VOLUME_INPUT = 100;
 	const MAX_SET_VOLUME_OUTPUT = 200;
-	const DEFAULT_STEP_SIZE = 2;
+	const DEFAULT_STEP_SIZE = 5;
 	const DEFAULT_SET_VOLUME = 80;
 	const DEFAULT_AUDIO_DEVICE_TYPE: AudioDeviceType = "Input";
 	const DEFAULT_KEYPAD_ACTION_TYPE: KeypadActionType = "Increase";

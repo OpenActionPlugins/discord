@@ -40,7 +40,7 @@ impl Default for VolumeControlSettings {
 		Self {
 			device_type: VoiceDeviceType::default(),
 			keypad_action_type: KeypadActionType::default(),
-			step_size: 2,
+			step_size: 5,
 			set_volume: 80,
 		}
 	}
