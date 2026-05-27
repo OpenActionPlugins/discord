@@ -7,15 +7,15 @@
 		name: string;
 	}
 
-	type AudioDeviceType = "Input" | "Output" | "Both";
+	type AudioDeviceTarget = "Input" | "Output" | "Both";
 
-	const DEFAULT_DEVICE_TYPE: AudioDeviceType = "Input";
+	const DEFAULT_DEVICE_TARGET: AudioDeviceTarget = "Input";
 
 	let inputs: AudioDevice[] = $state([]);
 	let outputs: AudioDevice[] = $state([]);
 
-	let selectedDeviceType: AudioDeviceType = $derived(
-		$actionSettings.target ?? DEFAULT_DEVICE_TYPE,
+	let selectedDeviceType: AudioDeviceTarget = $derived(
+		$actionSettings.target ?? DEFAULT_DEVICE_TARGET,
 	);
 	let selectedInput = $derived($actionSettings.input_device_id ?? "");
 	let selectedOutput = $derived($actionSettings.output_device_id ?? "");
@@ -32,7 +32,7 @@
 	});
 
 	function updateDeviceType(event: Event) {
-		const target = (event.target as HTMLSelectElement).value as AudioDeviceType;
+		const target = (event.target as HTMLSelectElement).value as AudioDeviceTarget;
 		$actionSettings = { ...$actionSettings, target };
 	}
 
