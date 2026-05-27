@@ -4,7 +4,7 @@
 	import ApplicationSettings from "$lib/ApplicationSettings.svelte";
 
 	type AudioDeviceType = "Input" | "Output";
-	type KeypadActionType = "Increase" | "Decrease" | "Set";
+	type VolumeControlActionType = "Increase" | "Decrease" | "Set";
 
 	const MIN_STEP_SIZE = 1;
 	const MAX_STEP_SIZE = 100;
@@ -14,15 +14,15 @@
 	const DEFAULT_STEP_SIZE = 5;
 	const DEFAULT_SET_VOLUME = 80;
 	const DEFAULT_AUDIO_DEVICE_TYPE: AudioDeviceType = "Input";
-	const DEFAULT_KEYPAD_ACTION_TYPE: KeypadActionType = "Increase";
+	const DEFAULT_ACTION_TYPE: VolumeControlActionType = "Increase";
 
 	let selectedAudioDeviceType: AudioDeviceType = $derived(
 		$actionSettings.device_type ?? DEFAULT_AUDIO_DEVICE_TYPE,
 	);
-	let selectedKeypadActionType: KeypadActionType = $derived(
-		$actionSettings.keypad_action_type ?? DEFAULT_KEYPAD_ACTION_TYPE,
+	let selectedActionType: VolumeControlActionType = $derived(
+		$actionSettings.action_type ?? DEFAULT_ACTION_TYPE,
 	);
-	let isSetVolume = $derived(selectedKeypadActionType === "Set");
+	let isSetVolume = $derived(selectedActionType === "Set");
 	let maxSetVolume = $derived(
 		selectedAudioDeviceType === "Output"
 			? MAX_SET_VOLUME_OUTPUT
@@ -45,10 +45,10 @@
 		}
 	}
 
-	function updateKeypadActionType(event: Event) {
-		const keypad_action_type = (event.target as HTMLSelectElement)
-			.value as KeypadActionType;
-		$actionSettings = { ...$actionSettings, keypad_action_type };
+	function updateActionType(event: Event) {
+		const action_type = (event.target as HTMLSelectElement)
+			.value as VolumeControlActionType;
+		$actionSettings = { ...$actionSettings, action_type };
 	}
 
 	function updateStepSize(event: Event) {
@@ -80,12 +80,12 @@
 
 	{#if $actionInfo?.payload.controller !== "Encoder"}
 		<div class="grid grid-cols-[250px_1fr] items-center">
-			<label for="keypadActionType" class="text-sm">Action</label>
+			<label for="actionType" class="text-sm">Action</label>
 			<div class="select-wrapper">
 				<select
-					id="keypadActionType"
-					value={selectedKeypadActionType}
-					onchange={updateKeypadActionType}
+					id="actionType"
+					value={selectedActionType}
+					onchange={updateActionType}
 					class="w-full"
 				>
 					<option value="Increase">Increase</option>

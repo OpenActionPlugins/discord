@@ -1,6 +1,6 @@
+use crate::actions::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper};
 use crate::client::schedule_reconnect;
 use crate::current_settings;
-use crate::utils::VoiceSettingsWrapper;
 
 use discord_ipc_rust::models::receive::{
 	ReceivedItem, commands::ReturnedCommand, events::ReturnedEvent,
@@ -65,22 +65,24 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 	}
 
 	if let Some(input) = settings.input {
-		*crate::actions::voice_input_settings().write().await = Some(VoiceSettingsWrapper {
+		*crate::actions::audio_device_utils::audio_input_settings()
+			.write()
+			.await = Some(AudioDeviceWrapper {
+			device_type: AudioDeviceType::Input,
 			device_id: input.device_id,
 			volume: input.volume,
-			enable: !mute && !deaf,
 		});
 	}
 
 	if let Some(output) = settings.output {
-		*crate::actions::voice_output_settings().write().await = Some(VoiceSettingsWrapper {
+		*crate::actions::audio_device_utils::audio_output_settings()
+			.write()
+			.await = Some(AudioDeviceWrapper {
+			device_type: AudioDeviceType::Output,
 			device_id: output.device_id,
 			volume: output.volume,
-			enable: !deaf,
 		});
 	}
-
-	get_action_setting(crate::actions::VolumeControlAction::UUID).await; // Hacky way to refresh the state
 }
 
 async fn update_action_state(action_uuid: ActionUuid, active: bool) {
@@ -88,14 +90,6 @@ async fn update_action_state(action_uuid: ActionUuid, active: bool) {
 	for instance in visible_instances(action_uuid).await {
 		if let Err(e) = instance.set_state(state).await {
 			log::error!("Failed to update state for {}: {}", action_uuid, e);
-		}
-	}
-}
-
-async fn get_action_setting(action_uuid: ActionUuid) {
-	for instance in visible_instances(action_uuid).await {
-		if let Err(e) = instance.get_settings().await {
-			log::error!("Failed to get setting for {}: {}", action_uuid, e);
 		}
 	}
 }

@@ -1,5 +1,9 @@
+pub mod audio_device_utils;
+mod volume_control;
+
+pub use volume_control::VolumeControlAction;
+
 use crate::client::discord_client;
-use crate::utils::VoiceSettingsWrapper;
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -14,19 +18,6 @@ use tokio::sync::RwLock;
 pub fn current_voice_mode() -> &'static RwLock<Option<VoiceSettingsMode>> {
 	static MODE: OnceLock<RwLock<Option<VoiceSettingsMode>>> = OnceLock::new();
 	MODE.get_or_init(|| RwLock::new(None))
-}
-
-mod volume_control;
-pub use volume_control::*;
-
-pub fn voice_input_settings() -> &'static RwLock<Option<VoiceSettingsWrapper>> {
-	static SETTINGS: OnceLock<RwLock<Option<VoiceSettingsWrapper>>> = OnceLock::new();
-	SETTINGS.get_or_init(|| RwLock::new(None))
-}
-
-pub fn voice_output_settings() -> &'static RwLock<Option<VoiceSettingsWrapper>> {
-	static SETTINGS: OnceLock<RwLock<Option<VoiceSettingsWrapper>>> = OnceLock::new();
-	SETTINGS.get_or_init(|| RwLock::new(None))
 }
 
 // Centralize the voice settings RPC call and Stream Deck feedback logic.

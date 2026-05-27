@@ -2,7 +2,6 @@ mod actions;
 mod client;
 mod oauth;
 mod rpc_events;
-pub mod utils;
 
 use actions::*;
 use client::schedule_reconnect;
