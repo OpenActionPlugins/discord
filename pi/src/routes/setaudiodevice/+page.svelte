@@ -14,8 +14,8 @@
 	let inputs: AudioDevice[] = $state([]);
 	let outputs: AudioDevice[] = $state([]);
 
-	let selectedDeviceType = $derived(
-		($actionSettings.target as AudioDeviceType | undefined) ?? DEFAULT_DEVICE_TYPE,
+	let selectedDeviceType: AudioDeviceType = $derived(
+		$actionSettings.target ?? DEFAULT_DEVICE_TYPE
 	);
 	let selectedInput = $derived($actionSettings.input_device_id ?? "");
 	let selectedOutput = $derived($actionSettings.output_device_id ?? "");

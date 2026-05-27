@@ -54,77 +54,43 @@ impl Action for SetAudioDeviceAction {
 	}
 
 	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {
-		let input_id = if settings.target.requires_input() {
-			match require_device_id(
-				instance,
+		let pairs = [
+			(
+				settings.target.requires_input(),
 				&AudioDeviceType::Input,
-				settings.input_device_id.as_deref(),
-			)
-			.await?
-			{
-				Some(device_id) => Some(device_id),
-				None => return Ok(()),
-			}
-		} else {
-			None
-		};
-		let output_id = if settings.target.requires_output() {
-			match require_device_id(
-				instance,
+				&settings.input_device_id,
+			),
+			(
+				settings.target.requires_output(),
 				&AudioDeviceType::Output,
-				settings.output_device_id.as_deref(),
-			)
-			.await?
-			{
-				Some(device_id) => Some(device_id),
-				None => return Ok(()),
-			}
-		} else {
-			None
-		};
+				&settings.output_device_id,
+			),
+		];
 
-		if let Some(input_id) = input_id {
-			apply_device_update(instance, &AudioDeviceType::Input, input_id).await?;
-		}
-		if let Some(output_id) = output_id {
-			apply_device_update(instance, &AudioDeviceType::Output, output_id).await?;
+		for (required, device_type, device_id) in pairs {
+			if !required {
+				continue;
+			}
+
+			let Some(id) = device_id.as_deref().filter(|id| !id.is_empty()) else {
+				log::error!("No device ID provided for {:?} device", device_type);
+				instance.show_alert().await?;
+				return Ok(());
+			};
+			let id = id.to_string();
+
+			apply_device_update(instance, device_type, id).await?;
 		}
 
 		Ok(())
 	}
 }
-
-async fn require_device_id(
-	instance: &Instance,
-	device_type: &AudioDeviceType,
-	device_id: Option<&str>,
-) -> OpenActionResult<Option<String>> {
-	let Some(device_id) = device_id.map(str::trim).filter(|id| !id.is_empty()) else {
-		log::error!("No {:?} device selected", device_type);
-		instance.show_alert().await?;
-		return Ok(None);
-	};
-
-	Ok(Some(device_id.to_owned()))
-}
-
-fn check_device_avaliable(current: &AudioDeviceWrapper, device_id: &str) -> bool {
-	if current.available_devices.is_empty() {
-		return false;
-	}
-
-	current
-		.available_devices
-		.iter()
-		.any(|device| device.id == device_id)
-}
-
 async fn apply_device_update(
 	instance: &Instance,
 	device_type: &AudioDeviceType,
 	device_id: String,
 ) -> OpenActionResult<()> {
-	let Some(voice_settings) = get_audio_device_settings(device_type).await else {
+	let Some(current) = get_audio_device_settings(device_type).await else {
 		log::error!(
 			"Failed to obtain voice settings for {:?} device",
 			device_type
@@ -133,27 +99,27 @@ async fn apply_device_update(
 		return Ok(());
 	};
 
-	if !check_device_avaliable(&voice_settings, &device_id) {
+	let device_available = current.available_devices.iter().any(|d| d.id == device_id);
+	if !device_available {
 		log::error!(
 			"Selected device '{}' not available for {:?}",
 			device_id,
 			device_type
 		);
-
 		instance.show_alert().await?;
 		return Ok(());
 	}
 
-	if voice_settings.device_id == device_id {
+	if current.device_id == device_id {
 		return Ok(());
 	}
 
-	let updated_voice_settings = AudioDeviceWrapper {
+	let updated_settings = AudioDeviceWrapper {
 		device_id,
-		..voice_settings
+		..current
 	};
 
-	update_voice_setting(instance, updated_voice_settings.into(), 0).await
+	update_voice_setting(instance, updated_settings.into(), 0).await
 }
 
 async fn send_avaliable_devices_to_pi(
@@ -166,28 +132,26 @@ async fn send_avaliable_devices_to_pi(
 		output_devices: Vec<VoiceAvailableDevice>,
 	}
 
-	let input_devices = if settings.target.requires_input() {
-		get_audio_device_settings(&AudioDeviceType::Input)
-			.await
-			.map(|settings| settings.available_devices)
-			.unwrap_or_default()
-	} else {
-		Vec::new()
-	};
+	async fn fetch_list(
+		required: bool,
+		device_type: &AudioDeviceType,
+	) -> Vec<VoiceAvailableDevice> {
+		if !required {
+			return Vec::new();
+		}
 
-	let output_devices = if settings.target.requires_output() {
-		get_audio_device_settings(&AudioDeviceType::Output)
+		get_audio_device_settings(device_type)
 			.await
-			.map(|settings| settings.available_devices)
+			.map(|s| s.available_devices)
 			.unwrap_or_default()
-	} else {
-		Vec::new()
-	};
+	}
 
 	instance
 		.send_to_property_inspector(Payload {
-			input_devices,
-			output_devices,
+			input_devices: fetch_list(settings.target.requires_input(), &AudioDeviceType::Input)
+				.await,
+			output_devices: fetch_list(settings.target.requires_output(), &AudioDeviceType::Output)
+				.await,
 		})
 		.await
 }
