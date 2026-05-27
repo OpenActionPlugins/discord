@@ -64,16 +64,6 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 			});
 	}
 
-	if let Some(mode) = &settings.mode {
-		let is_ptt = mode.mode_type == "PUSH_TO_TALK";
-		update_action_state(crate::actions::ToggleVoiceInputModeAction::UUID, is_ptt).await;
-		*crate::actions::current_voice_mode().write().await =
-			Some(discord_ipc_rust::models::shared::voice::VoiceSettingsMode {
-				mode_type: mode.mode_type.clone(),
-				..*mode
-			});
-	}
-
 	if let Some(input) = settings.input {
 		*crate::actions::voice_input_settings().write().await = Some(VoiceSettingsWrapper {
 			device_id: input.device_id,
