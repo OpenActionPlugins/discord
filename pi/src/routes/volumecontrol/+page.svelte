@@ -118,32 +118,27 @@
 				<p class="settings-description">Volume set by keypad press.</p>
 			</div>
 		</div>
-	{/if}
-
-	<div class="settings-grid" class:opacity-50={isSetVolume}>
-		<label for="stepSize" class="pt-1 text-sm">Volume Step Size</label>
-		<div class="space-y-1">
-			<div class="flex items-center justify-between text-xs">
-				<span>{currentStepSize}%</span>
+	{:else}
+		<div class="settings-grid">
+			<label for="stepSize" class="pt-1 text-sm">Volume Step Size</label>
+			<div class="space-y-1">
+				<div class="flex items-center justify-between text-xs">
+					<span>{currentStepSize}%</span>
+				</div>
+				<input
+					id="stepSize"
+					type="range"
+					min={MIN_STEP_SIZE}
+					max={MAX_STEP_SIZE}
+					step="1"
+					value={currentStepSize}
+					oninput={updateStepSize}
+					class="h-1.5 w-full cursor-pointer accent-blue-500"
+				/>
+				<p class="settings-description">Volume adjustment per step.</p>
 			</div>
-			<input
-				id="stepSize"
-				type="range"
-				min={MIN_STEP_SIZE}
-				max={MAX_STEP_SIZE}
-				step="1"
-				value={currentStepSize}
-				oninput={updateStepSize}
-				disabled={isSetVolume}
-				class="h-1.5 w-full cursor-pointer accent-blue-500"
-				class:opacity-50={isSetVolume}
-				class:cursor-not-allowed={isSetVolume}
-			/>
-			<p class="settings-description" class:opacity-50={isSetVolume}>
-				Volume adjustment per step (increase/decrease only).
-			</p>
 		</div>
-	</div>
+	{/if}
 </div>
 
 <ApplicationSettings />
