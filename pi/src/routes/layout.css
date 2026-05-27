@@ -23,11 +23,3 @@ select {
 	@apply border-r-2 border-b-2 border-neutral-400;
 	@apply pointer-events-none content-["_"];
 }
-
-.settings-grid {
-	@apply grid grid-cols-[250px_1fr] items-start gap-x-3 gap-y-2;
-}
-
-.settings-description {
-    @apply text-sm text-neutral-400;
-}

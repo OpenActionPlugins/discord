@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { actionSettings } from "@openaction/svelte-pi";
+	import { actionSettings, actionInfo } from "@openaction/svelte-pi";
 
 	import ApplicationSettings from "$lib/ApplicationSettings.svelte";
 
@@ -62,27 +62,25 @@
 	}
 </script>
 
-<div class="space-y-4 pt-1 text-xs text-neutral-200">
-	<div class="settings-grid">
-		<label for="audioType" class="pt-2 text-sm">Target</label>
-		<div class="space-y-2">
-			<div class="select-wrapper">
-				<select
-					id="audioType"
-					value={selectedAudioDeviceType}
-					onchange={updateAudioDeviceType}
-					class="w-full"
-				>
-					<option value="Input">Input</option>
-					<option value="Output">Output</option>
-				</select>
-			</div>
+<div class="space-y-4 text-neutral-200">
+	<div class="grid grid-cols-[250px_1fr] items-center">
+		<label for="audioDeviceType" class="text-sm">Target</label>
+		<div class="select-wrapper">
+			<select
+				id="audioDeviceType"
+				value={selectedAudioDeviceType}
+				onchange={updateAudioDeviceType}
+				class="w-full"
+			>
+				<option value="Input">Input</option>
+				<option value="Output">Output</option>
+			</select>
 		</div>
 	</div>
 
-	<div class="settings-grid">
-		<label for="keypadActionType" class="pt-1 text-sm">Keypad Action</label>
-		<div class="space-y-1">
+	{#if $actionInfo?.payload.controller !== "Encoder"}
+		<div class="grid grid-cols-[250px_1fr] items-center">
+			<label for="keypadActionType" class="text-sm">Action</label>
 			<div class="select-wrapper">
 				<select
 					id="keypadActionType"
@@ -90,58 +88,49 @@
 					onchange={updateKeypadActionType}
 					class="w-full"
 				>
-					<option value="Increase">Increase Volume</option>
-					<option value="Decrease">Decrease Volume</option>
-					<option value="Set">Set Volume</option>
+					<option value="Increase">Increase</option>
+					<option value="Decrease">Decrease</option>
+					<option value="Set">Set</option>
 				</select>
 			</div>
-			<p class="settings-description">
-				Keypad only!! Does not affect dial action on press.
-			</p>
 		</div>
-	</div>
+	{/if}
 
 	{#if isSetVolume}
-		<div class="settings-grid">
-			<label for="setVolume" class="pt-1 text-sm">Set Volume Level</label>
-			<div class="space-y-1">
-				<div class="flex items-center justify-between text-xs">
-					<span>{currentSetVolume}%</span>
-				</div>
+		<div class="grid grid-cols-[250px_1fr] items-center">
+			<label for="setVolume" class="text-sm">Set Volume Level</label>
+			<div class="flex flex-row items-center space-x-4">
 				<input
 					id="setVolume"
 					type="range"
 					min={MIN_SET_VOLUME}
 					max={maxSetVolume}
-					step="1"
 					value={currentSetVolume}
 					oninput={updateSetVolume}
-					class="h-1.5 w-full cursor-pointer accent-blue-500"
+					class="h-1.5 w-full cursor-pointer"
 				/>
-				<p class="settings-description">Volume set by keypad press.</p>
+				<span>{currentSetVolume}%</span>
 			</div>
 		</div>
 	{:else}
-		<div class="settings-grid">
-			<label for="stepSize" class="pt-1 text-sm">Volume Step Size</label>
-			<div class="space-y-1">
-				<div class="flex items-center justify-between text-xs">
-					<span>{currentStepSize}%</span>
-				</div>
+		<div class="grid grid-cols-[250px_1fr] items-center">
+			<label for="stepSize" class="text-sm">Volume Step Size</label>
+			<div class="flex flex-row items-center space-x-4">
 				<input
 					id="stepSize"
 					type="range"
 					min={MIN_STEP_SIZE}
 					max={MAX_STEP_SIZE}
-					step="1"
 					value={currentStepSize}
 					oninput={updateStepSize}
-					class="h-1.5 w-full cursor-pointer accent-blue-500"
+					class="h-1.5 w-full cursor-pointer"
 				/>
-				<p class="settings-description">Volume adjustment per step.</p>
+				<span>{currentStepSize}%</span>
 			</div>
 		</div>
 	{/if}
 </div>
+
+<hr class="my-4 border-neutral-700" />
 
 <ApplicationSettings />

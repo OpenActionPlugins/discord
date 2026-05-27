@@ -7,7 +7,7 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
 	},
 	"dependencies": {
-		"@openaction/svelte-pi": "^1.0"
+		"@openaction/svelte-pi": "^1.1"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "^3.0",
