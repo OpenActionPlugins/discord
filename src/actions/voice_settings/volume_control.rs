@@ -51,6 +51,10 @@ async fn adjust_volume(
 	let new_linear =
 		if set { value } else { current_linear + value }.clamp(0.0, device_type.max_volume());
 
+	if new_linear == current_linear {
+		return Ok(());
+	}
+
 	let updated_settings = AudioDeviceWrapper {
 		volume: device_type.to_discord(new_linear),
 		..device_settings
