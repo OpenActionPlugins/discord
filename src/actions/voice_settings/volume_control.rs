@@ -93,20 +93,12 @@ impl Action for VolumeControlAction {
 		instance: &Instance,
 		settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		// 1. If another instance is active, do nothing
-		// 2. If this instance is already active, don't restart the loop
-		// 3. If no instance is active, set this instance as active and start the loop
-		let start_loop = {
-			let mut active = HOLD_ACTIVE_INSTANCE.lock().await;
-			match active.as_ref() {
-				Some(active_id) if active_id != &instance.instance_id => return Ok(()),
-				Some(_) => false,
-				None => {
-					*active = Some(instance.instance_id.clone());
-					true
-				}
-			}
+		let mut active = HOLD_ACTIVE_INSTANCE.lock().await;
+		match active.as_ref() {
+			Some(_) => return Ok(()),
+			None => *active = Some(instance.instance_id.clone()),
 		};
+		drop(active);
 
 		let (delta, set) = match settings.keypad_action_type {
 			KeypadActionType::Increase => (settings.step_size as f32, false),
@@ -114,34 +106,33 @@ impl Action for VolumeControlAction {
 			KeypadActionType::Set => (settings.set_volume as f32, true),
 		};
 
-		if start_loop {
-			use tokio::time::sleep;
+		use tokio::time::sleep;
 
-			let id = instance.instance_id.clone();
-			let settings = settings.clone();
+		let id = instance.instance_id.clone();
+		let settings_clone = settings.clone();
 
-			tokio::spawn(async move {
-				let Some(instance) = visible_instances(VolumeControlAction::UUID)
-					.await
-					.into_iter()
-					.find(|i| i.instance_id == id)
-				else {
-					clear_active_hold(&id).await;
-					return;
-				};
+		tokio::spawn(async move {
+			let Some(instance) = visible_instances(VolumeControlAction::UUID)
+				.await
+				.into_iter()
+				.find(|i| i.instance_id == id)
+			else {
+				clear_active_hold(&id).await;
+				return;
+			};
 
-				sleep(HOLD_INITIAL_DELAY).await;
+			sleep(HOLD_INITIAL_DELAY).await;
 
-				while HOLD_ACTIVE_INSTANCE.lock().await.as_ref() == Some(&id) {
-					if let Err(e) = adjust_volume(instance.as_ref(), &settings, delta, set).await {
-						log::error!("Failed to adjust volume while holding key down: {e}");
-						let _ = instance.show_alert().await;
-					}
-
-					sleep(HOLD_REPEAT_INTERVAL).await;
+			while HOLD_ACTIVE_INSTANCE.lock().await.as_ref() == Some(&id) {
+				if let Err(e) = adjust_volume(instance.as_ref(), &settings_clone, delta, set).await
+				{
+					log::error!("Failed to adjust volume while holding key down: {e}");
+					let _ = instance.show_alert().await;
 				}
-			});
-		}
+
+				sleep(HOLD_REPEAT_INTERVAL).await;
+			}
+		});
 
 		adjust_volume(instance, settings, delta, set).await
 	}
