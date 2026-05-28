@@ -18,10 +18,8 @@
 	let selectedDeviceTarget: AudioDeviceTarget = $derived(
 		$actionSettings.target ?? DEFAULT_DEVICE_TARGET,
 	);
-	let currentlySelectedInputDevice = $state("");
-	let currentlySelectedOutputDevice = $state("");
-	let selectedInputDevice = $derived($actionSettings.input_device_id ?? currentlySelectedInputDevice);
-	let selectedOutputDevice = $derived($actionSettings.output_device_id ?? currentlySelectedOutputDevice);
+	let selectedInputDevice = $derived($actionSettings.input_device_id ?? "");
+	let selectedOutputDevice = $derived($actionSettings.output_device_id ?? "");
 
 	eventTarget.addEventListener("sendToPropertyInspector", (event: any) => {
 		const payload = event.detail?.payload ?? {};
@@ -32,16 +30,29 @@
 		if (Array.isArray(payload.output_devices)) {
 			outputs = payload.output_devices;
 		}
-		if (typeof payload.selected_input_device === "string") {
-			currentlySelectedInputDevice = payload.selected_input_device;
+		if (
+			typeof payload.selected_input_device === "string" &&
+			!$actionSettings.input_device_id
+		) {
+			$actionSettings = {
+				...$actionSettings,
+				input_device_id: payload.selected_input_device,
+			};
 		}
-		if (typeof payload.selected_output_device === "string") {
-			currentlySelectedOutputDevice = payload.selected_output_device;
+		if (
+			typeof payload.selected_output_device === "string" &&
+			!$actionSettings.output_device_id
+		) {
+			$actionSettings = {
+				...$actionSettings,
+				output_device_id: payload.selected_output_device,
+			};
 		}
 	});
 
 	function updateDeviceTarget(event: Event) {
-		const target = (event.target as HTMLSelectElement).value as AudioDeviceTarget;
+		const target = (event.target as HTMLSelectElement)
+			.value as AudioDeviceTarget;
 		$actionSettings = { ...$actionSettings, target };
 	}
 
