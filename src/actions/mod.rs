@@ -1,6 +1,6 @@
 mod screen_share;
 mod video;
-mod voice_settings;
+pub mod voice_settings;
 
 pub use screen_share::*;
 pub use video::*;

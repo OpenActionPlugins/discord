@@ -5,7 +5,7 @@ use discord_ipc_rust::models::shared::voice::VoiceAvailableDevice;
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Default)]
 pub enum AudioDeviceTarget {
 	#[default]
 	Input,
@@ -23,7 +23,7 @@ impl AudioDeviceTarget {
 	}
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct SetAudioDeviceSettings {
 	pub target: AudioDeviceTarget,
@@ -48,9 +48,9 @@ async fn update_device(
 	let device_available = current.available_devices.iter().any(|d| d.id == device_id);
 	if !device_available {
 		log::error!(
-			"Selected device '{}' not available for {:?}",
-			device_id,
-			device_type
+			"Failed to update {:?} device: selected device '{}' not available",
+			device_type,
+			device_id
 		);
 		instance.show_alert().await?;
 		return Ok(());
@@ -68,18 +68,14 @@ async fn update_device(
 	update_voice_setting(instance, updated_settings.into(), 0).await
 }
 
-pub async fn send_avaliable_devices_to_pi(
-	instance: &Instance,
-) -> OpenActionResult<()> {
+pub async fn send_available_devices_to_pi(instance: &Instance) -> OpenActionResult<()> {
 	#[derive(Serialize)]
 	struct Payload {
 		input_devices: Vec<VoiceAvailableDevice>,
 		output_devices: Vec<VoiceAvailableDevice>,
 	}
 
-	async fn fetch_list(
-		device_type: &AudioDeviceType,
-	) -> Vec<VoiceAvailableDevice> {
+	async fn fetch_device_list(device_type: &AudioDeviceType) -> Vec<VoiceAvailableDevice> {
 		get_audio_device_settings(device_type)
 			.await
 			.map(|s| s.available_devices)
@@ -88,10 +84,8 @@ pub async fn send_avaliable_devices_to_pi(
 
 	instance
 		.send_to_property_inspector(Payload {
-			input_devices: fetch_list(&AudioDeviceType::Input)
-				.await,
-			output_devices: fetch_list(&AudioDeviceType::Output)
-				.await,
+			input_devices: fetch_device_list(&AudioDeviceType::Input).await,
+			output_devices: fetch_device_list(&AudioDeviceType::Output).await,
 		})
 		.await
 }
@@ -102,24 +96,24 @@ impl Action for SetAudioDeviceAction {
 	const UUID: ActionUuid = "me.amankhanna.oadiscord.setaudiodevice";
 	type Settings = SetAudioDeviceSettings;
 
-	async fn did_receive_settings(
-		&self,
-		instance: &Instance,
-		_settings: &Self::Settings,
-	) -> OpenActionResult<()> {
-		send_avaliable_devices_to_pi(instance).await
-	}
-
 	async fn will_appear(
 		&self,
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		send_avaliable_devices_to_pi(instance).await
+		send_available_devices_to_pi(instance).await
+	}
+
+	async fn did_receive_settings(
+		&self,
+		instance: &Instance,
+		_settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		send_available_devices_to_pi(instance).await
 	}
 
 	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {
-		let pairs = [
+		let targets = [
 			(
 				settings.target.requires_input(),
 				&AudioDeviceType::Input,
@@ -132,19 +126,17 @@ impl Action for SetAudioDeviceAction {
 			),
 		];
 
-		for (required, device_type, device_id) in pairs {
-			if !required {
-				continue;
-			}
-
+		for (_, device_type, device_id) in targets.iter().filter(|x| x.0) {
 			let Some(id) = device_id.as_deref().filter(|id| !id.is_empty()) else {
-				log::error!("No device ID provided for {:?} device", device_type);
+				log::error!(
+					"Failed to update {:?} device: no device ID provided",
+					device_type
+				);
 				instance.show_alert().await?;
 				return Ok(());
 			};
-			let id = id.to_string();
 
-			update_device(instance, device_type, id).await?;
+			update_device(instance, device_type, id.to_owned()).await?;
 		}
 
 		Ok(())

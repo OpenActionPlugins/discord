@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { actionSettings, eventTarget } from "@openaction/svelte-pi";
+
 	import ApplicationSettings from "$lib/ApplicationSettings.svelte";
 
-	interface AudioDevice {
+	interface VoiceAvailableDevice {
 		id: string;
 		name: string;
 	}
@@ -11,14 +12,14 @@
 
 	const DEFAULT_DEVICE_TARGET: AudioDeviceTarget = "Input";
 
-	let inputs: AudioDevice[] = $state([]);
-	let outputs: AudioDevice[] = $state([]);
+	let inputs: VoiceAvailableDevice[] = $state([]);
+	let outputs: VoiceAvailableDevice[] = $state([]);
 
-	let selectedDeviceType: AudioDeviceTarget = $derived(
+	let selectedDeviceTarget: AudioDeviceTarget = $derived(
 		$actionSettings.target ?? DEFAULT_DEVICE_TARGET,
 	);
-	let selectedInput = $derived($actionSettings.input_device_id ?? "");
-	let selectedOutput = $derived($actionSettings.output_device_id ?? "");
+	let selectedInputDevice = $derived($actionSettings.input_device_id ?? "");
+	let selectedOutputDevice = $derived($actionSettings.output_device_id ?? "");
 
 	eventTarget.addEventListener("sendToPropertyInspector", (event: any) => {
 		const payload = event.detail?.payload ?? {};
@@ -31,7 +32,7 @@
 		}
 	});
 
-	function updateDeviceType(event: Event) {
+	function updateDeviceTarget(event: Event) {
 		const target = (event.target as HTMLSelectElement).value as AudioDeviceTarget;
 		$actionSettings = { ...$actionSettings, target };
 	}
@@ -47,69 +48,63 @@
 	}
 </script>
 
-<div class="space-y-4 pt-1 text-xs text-neutral-200">
+<div class="space-y-4 text-neutral-200">
 	<div class="grid grid-cols-[250px_1fr] items-center">
-		<label for="audioType" class="text-sm">Target</label>
-		<div class="space-y-2">
-			<div class="select-wrapper">
-				<select
-					id="audioType"
-					value={selectedDeviceType}
-					onchange={updateDeviceType}
-					class="w-full"
-				>
-					<option value="Input">Set Input</option>
-					<option value="Output">Set Output</option>
-					<option value="Both">Set Both</option>
-				</select>
-			</div>
+		<label for="deviceTarget" class="text-sm">Target</label>
+		<div class="select-wrapper">
+			<select
+				id="deviceTarget"
+				value={selectedDeviceTarget}
+				onchange={updateDeviceTarget}
+				class="w-full"
+			>
+				<option value="Input">Set Input</option>
+				<option value="Output">Set Output</option>
+				<option value="Both">Set Both</option>
+			</select>
 		</div>
 	</div>
 
-	{#if selectedDeviceType === "Input" || selectedDeviceType === "Both"}
+	{#if selectedDeviceTarget === "Input" || selectedDeviceTarget === "Both"}
 		<div class="grid grid-cols-[250px_1fr] items-center">
-			<label for="inputDevice" class="text-sm">Input device</label>
-			<div class="space-y-1">
-				<div class="select-wrapper">
-					<select
-						id="inputDevice"
-						value={selectedInput}
-						onchange={updateInputDevice}
-						class="w-full"
-					>
-						{#if inputs.length === 0}
-							<option value="" disabled>No input devices available</option>
-						{:else}
-							{#each inputs as device}
-								<option value={device.id}>{device.name}</option>
-							{/each}
-						{/if}
-					</select>
-				</div>
+			<label for="inputDevice" class="text-sm">Input Device</label>
+			<div class="select-wrapper">
+				<select
+					id="inputDevice"
+					value={selectedInputDevice}
+					onchange={updateInputDevice}
+					class="w-full"
+				>
+					{#if inputs.length === 0}
+						<option value="" disabled>No input devices available</option>
+					{:else}
+						{#each inputs as device}
+							<option value={device.id}>{device.name}</option>
+						{/each}
+					{/if}
+				</select>
 			</div>
 		</div>
 	{/if}
 
-	{#if selectedDeviceType === "Output" || selectedDeviceType === "Both"}
+	{#if selectedDeviceTarget === "Output" || selectedDeviceTarget === "Both"}
 		<div class="grid grid-cols-[250px_1fr] items-center">
-			<label for="outputDevice" class="text-sm">Output device</label>
-			<div class="space-y-1">
-				<div class="select-wrapper">
-					<select
-						id="outputDevice"
-						value={selectedOutput}
-						onchange={updateOutputDevice}
-						class="w-full"
-					>
-						{#if outputs.length === 0}
-							<option value="" disabled>No output devices available</option>
-						{:else}
-							{#each outputs as device}
-								<option value={device.id}>{device.name}</option>
-							{/each}
-						{/if}
-					</select>
-				</div>
+			<label for="outputDevice" class="text-sm">Output Device</label>
+			<div class="select-wrapper">
+				<select
+					id="outputDevice"
+					value={selectedOutputDevice}
+					onchange={updateOutputDevice}
+					class="w-full"
+				>
+					{#if outputs.length === 0}
+						<option value="" disabled>No output devices available</option>
+					{:else}
+						{#each outputs as device}
+							<option value={device.id}>{device.name}</option>
+						{/each}
+					{/if}
+				</select>
 			</div>
 		</div>
 	{/if}
