@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 
 use discord_ipc_rust::models::{
 	send::commands::SetVoiceSettingsArgs,
-	shared::voice::{VoiceSettingsInput, VoiceSettingsOutput},
+	shared::voice::{VoiceAvailableDevice, VoiceSettingsInput, VoiceSettingsOutput},
 };
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
@@ -54,6 +54,7 @@ pub struct AudioDeviceWrapper {
 	pub device_type: AudioDeviceType,
 	pub device_id: String,
 	pub volume: f32,
+	pub available_devices: Vec<VoiceAvailableDevice>,
 }
 
 impl From<AudioDeviceWrapper> for SetVoiceSettingsArgs {
