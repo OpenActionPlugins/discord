@@ -68,9 +68,8 @@ async fn update_device(
 	update_voice_setting(instance, updated_settings.into(), 0).await
 }
 
-async fn send_avaliable_devices_to_pi(
+pub async fn send_avaliable_devices_to_pi(
 	instance: &Instance,
-	settings: &SetAudioDeviceSettings,
 ) -> OpenActionResult<()> {
 	#[derive(Serialize)]
 	struct Payload {
@@ -79,13 +78,8 @@ async fn send_avaliable_devices_to_pi(
 	}
 
 	async fn fetch_list(
-		required: bool,
 		device_type: &AudioDeviceType,
 	) -> Vec<VoiceAvailableDevice> {
-		if !required {
-			return Vec::new();
-		}
-
 		get_audio_device_settings(device_type)
 			.await
 			.map(|s| s.available_devices)
@@ -94,9 +88,9 @@ async fn send_avaliable_devices_to_pi(
 
 	instance
 		.send_to_property_inspector(Payload {
-			input_devices: fetch_list(settings.target.requires_input(), &AudioDeviceType::Input)
+			input_devices: fetch_list(&AudioDeviceType::Input)
 				.await,
-			output_devices: fetch_list(settings.target.requires_output(), &AudioDeviceType::Output)
+			output_devices: fetch_list(&AudioDeviceType::Output)
 				.await,
 		})
 		.await
@@ -111,17 +105,17 @@ impl Action for SetAudioDeviceAction {
 	async fn did_receive_settings(
 		&self,
 		instance: &Instance,
-		settings: &Self::Settings,
+		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		send_avaliable_devices_to_pi(instance, settings).await
+		send_avaliable_devices_to_pi(instance).await
 	}
 
 	async fn will_appear(
 		&self,
 		instance: &Instance,
-		settings: &Self::Settings,
+		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		send_avaliable_devices_to_pi(instance, settings).await
+		send_avaliable_devices_to_pi(instance).await
 	}
 
 	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {

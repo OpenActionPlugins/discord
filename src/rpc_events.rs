@@ -86,7 +86,9 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 		});
 	}
 
-	get_action_settings(crate::actions::SetAudioDeviceAction::UUID).await;
+	for instance in visible_instances(crate::actions::SetAudioDeviceAction::UUID).await {
+	     let _ = crate::actions::send_avaliable_devices_to_pi(&instance).await;
+	}
 }
 
 async fn update_action_state(action_uuid: ActionUuid, active: bool) {
@@ -96,12 +98,4 @@ async fn update_action_state(action_uuid: ActionUuid, active: bool) {
 			log::error!("Failed to update state for {}: {}", action_uuid, e);
 		}
 	}
-}
-
-async fn get_action_settings(action_uuid: ActionUuid) {
-    for instance in visible_instances(action_uuid).await {
-        if let Err(e) = instance.get_settings().await {
-			log::error!("Failed to get settings for {}: {}", action_uuid, e);
-		}
-    }
 }
