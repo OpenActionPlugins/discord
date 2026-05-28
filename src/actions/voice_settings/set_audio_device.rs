@@ -73,19 +73,29 @@ pub async fn send_available_devices_to_pi(instance: &Instance) -> OpenActionResu
 	struct Payload {
 		input_devices: Vec<VoiceAvailableDevice>,
 		output_devices: Vec<VoiceAvailableDevice>,
+		selected_input_device: String,
+		selected_output_device: String,
 	}
 
-	async fn fetch_device_list(device_type: &AudioDeviceType) -> Vec<VoiceAvailableDevice> {
+	async fn fetch_device_list(
+		device_type: &AudioDeviceType,
+	) -> (String, Vec<VoiceAvailableDevice>) {
 		get_audio_device_settings(device_type)
 			.await
-			.map(|s| s.available_devices)
+			.map(|s| (s.device_id, s.available_devices))
 			.unwrap_or_default()
 	}
 
+	let (selected_input_device, input_devices) = fetch_device_list(&AudioDeviceType::Input).await;
+	let (selected_output_device, output_devices) =
+		fetch_device_list(&AudioDeviceType::Output).await;
+
 	instance
 		.send_to_property_inspector(Payload {
-			input_devices: fetch_device_list(&AudioDeviceType::Input).await,
-			output_devices: fetch_device_list(&AudioDeviceType::Output).await,
+			input_devices,
+			output_devices,
+			selected_input_device,
+			selected_output_device,
 		})
 		.await
 }
