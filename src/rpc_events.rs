@@ -26,7 +26,12 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 					schedule_reconnect();
 				}
 			}
-			ReturnedEvent::VoiceSettingsUpdate(voice) => apply_voice_state(voice).await,
+			ReturnedEvent::VoiceChannelSelect(data) => {
+                handle_select_voice_channel(data.channel_id).await;
+			}
+			ReturnedEvent::VoiceSettingsUpdate(voice) => {
+			    apply_voice_state(voice).await;
+			},
 			ReturnedEvent::VideoStateUpdate(state) => {
 				update_action_state(crate::actions::ToggleVideoAction::UUID, state.active).await;
 			}
@@ -36,16 +41,33 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 			}
 			_ => {}
 		},
-		ReceivedItem::Command(command) => {
-			if let ReturnedCommand::GetVoiceSettings(voice) = *command {
-				apply_voice_state(voice).await;
+		ReceivedItem::Command(command) => match *command {
+			ReturnedCommand::GetGuilds { guilds } => {
+				crate::actions::update_guild_cache(&guilds).await;
+				let _ = crate::actions::send_guilds_to_pi(None).await;
 			}
-		}
+			ReturnedCommand::GetChannels { channels } => {
+				crate::actions::send_channels_to_pi(&channels).await;
+			}
+			ReturnedCommand::GetSelectedVoiceChannel(channel) => {
+			    let channel_id = channel.map(|c| c.id);
+			    handle_select_voice_channel(channel_id).await;
+			}
+			_ => {}
+		},
 		ReceivedItem::SocketClosed => {
 			log::warn!("Discord closed; attempting to reconnect");
+			crate::actions::clear_guild_cache().await;
 			schedule_reconnect();
 		}
 	}
+}
+
+async fn handle_select_voice_channel(
+	channel_id: Option<String>
+) {
+	*crate::actions::current_voice_channel().write().await = channel_id;
+	call_did_receive_settings(crate::actions::VoiceChannelAction::UUID).await;
 }
 
 async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::VoiceSettings) {
@@ -99,6 +121,18 @@ async fn update_action_state(action_uuid: ActionUuid, active: bool) {
 	for instance in visible_instances(action_uuid).await {
 		if let Err(e) = instance.set_state(state).await {
 			log::error!("Failed to update state for {}: {}", action_uuid, e);
+		}
+	}
+}
+
+async fn call_did_receive_settings(action_uuid: ActionUuid) {
+	for instance in visible_instances(action_uuid).await {
+		if let Err(e) = instance.get_settings().await {
+			log::error!(
+				"Failed to call did_receive_settings for {}: {}",
+				action_uuid,
+				e
+			);
 		}
 	}
 }

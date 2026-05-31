@@ -94,6 +94,12 @@ async fn setup_discord_client(
 	.map_err(|e| format!("Failed to subscribe to voice settings updates: {}", e))?;
 
 	rpc.emit_command(&SentCommand::Subscribe(
+		SubscribeableEvent::VoiceChannelSelect,
+	))
+	.await
+	.map_err(|e| format!("Failed to subscribe to voice channel select: {}", e))?;
+
+	rpc.emit_command(&SentCommand::Subscribe(
 		SubscribeableEvent::VideoStateUpdate,
 	))
 	.await
@@ -105,10 +111,20 @@ async fn setup_discord_client(
 	.await
 	.map_err(|e| format!("Failed to subscribe to screen share state updates: {}", e))?;
 
+	// Request current selected voice channel
+	rpc.emit_command(&SentCommand::GetSelectedVoiceChannel)
+		.await
+		.map_err(|e| format!("Failed to fetch initial selected voice channel: {}", e))?;
+
 	// Request current voice settings so buttons reflect the initial state immediately.
 	rpc.emit_command(&SentCommand::GetVoiceSettings)
 		.await
 		.map_err(|e| format!("Failed to fetch initial voice settings: {}", e))?;
+
+	// Request guild list
+	rpc.emit_command(&SentCommand::GetGuilds)
+		.await
+		.map_err(|e| format!("Failed to fetch guilds: {}", e))?;
 
 	let mut current = current_settings().write().await;
 	current.error = None;
@@ -200,6 +216,8 @@ async fn create_discord_client(settings: &DiscordSettings) -> Result<DiscordIpcC
 			client_id: settings.client_id.clone(),
 			scopes: vec![
 				"rpc".to_owned(),
+				"rpc.voice.read".to_owned(),
+				"rpc.voice.write".to_owned(),
 				"rpc.video.read".to_owned(),
 				"rpc.video.write".to_owned(),
 				"rpc.screenshare.read".to_owned(),
