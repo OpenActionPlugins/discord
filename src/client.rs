@@ -21,6 +21,12 @@ pub fn discord_client() -> &'static RwLock<Option<DiscordIpcClient>> {
 	CLIENT.get_or_init(|| RwLock::new(None))
 }
 
+// Shared place to store the currently selected voice channel ID
+pub fn current_voice_channel() -> &'static RwLock<Option<String>> {
+	static CHANNEL: OnceLock<RwLock<Option<String>>> = OnceLock::new();
+	CHANNEL.get_or_init(|| RwLock::new(None))
+}
+
 // Store the latest error message in the global settings so the UI can surface it.
 pub async fn update_error(error: &str) {
 	let mut current = current_settings().write().await;

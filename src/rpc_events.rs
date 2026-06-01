@@ -1,5 +1,5 @@
 use crate::actions::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper};
-use crate::client::schedule_reconnect;
+use crate::client::{schedule_reconnect, current_voice_channel};
 use crate::current_settings;
 
 use discord_ipc_rust::models::receive::{
@@ -66,7 +66,7 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 async fn handle_select_voice_channel(
 	channel_id: Option<String>
 ) {
-	*crate::actions::current_voice_channel().write().await = channel_id;
+	*current_voice_channel().write().await = channel_id;
 	call_did_receive_settings(crate::actions::VoiceChannelAction::UUID).await;
 }
 

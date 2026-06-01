@@ -1,5 +1,5 @@
 use crate::cache::{CachedGuild, guild_cache, refresh_guild_cache};
-use crate::client::discord_client;
+use crate::client::{discord_client, current_voice_channel};
 
 use std::sync::OnceLock;
 
@@ -47,11 +47,6 @@ enum PiRequest {
 	RequestChannels { guild_id: String },
 }
 
-pub fn current_voice_channel() -> &'static RwLock<Option<String>> {
-	static CHANNEL: OnceLock<RwLock<Option<String>>> = OnceLock::new();
-	CHANNEL.get_or_init(|| RwLock::new(None))
-}
-
 struct ChannelRequest {
 	instance_id: String,
 	kind: ChannelKind,
@@ -62,10 +57,12 @@ fn channel_request_queue() -> &'static RwLock<Vec<ChannelRequest>> {
 	QUEUE.get_or_init(|| RwLock::new(Vec::new()))
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
-pub struct ChannelActionSettings {
-	pub guild_id: Option<String>,
-	pub channel_id: Option<String>,
+async fn emit_get_guilds(instance: &Instance, refresh: bool) -> OpenActionResult<()> {
+	if !refresh && !guild_cache().read().await.is_empty() {
+		return send_guilds_to_pi(Some(instance)).await;
+	}
+
+	refresh_guild_cache(instance).await
 }
 
 pub async fn send_guilds_to_pi(instance: Option<&Instance>) -> OpenActionResult<()> {
@@ -161,12 +158,10 @@ async fn handle_pi_request(
 	Ok(())
 }
 
-async fn emit_get_guilds(instance: &Instance, refresh: bool) -> OpenActionResult<()> {
-	if !refresh && !guild_cache().read().await.is_empty() {
-		return send_guilds_to_pi(Some(instance)).await;
-	}
-
-	refresh_guild_cache(instance).await
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct ChannelActionSettings {
+	pub guild_id: Option<String>,
+	pub channel_id: Option<String>,
 }
 
 async fn sync_voice_channel_state(
