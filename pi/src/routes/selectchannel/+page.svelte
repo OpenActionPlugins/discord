@@ -91,7 +91,7 @@
 				disabled={loadingGuilds}
 			>
 				{#if guilds.length === 0}
-					<option value="" disabled>{loadingGuilds ? "Loading..." : "No servers available"}</option>
+					<option value="" disabled>No servers available</option>
 				{:else}
 					<option value="">Select a server</option>
 					{#each guilds as guild}
@@ -115,7 +115,7 @@
 				{#if !selectedGuild}
 					<option value="">Select a server first</option>
 				{:else if channels.length === 0}
-					<option value="" disabled>{loadingChannels ? "Loading..." : "No channels available"}</option>
+					<option value="" disabled>No channels available</option>
 				{:else}
 					<option value="">Select a channel</option>
 					{#each channels as channel}
