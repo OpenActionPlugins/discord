@@ -19,13 +19,15 @@ pub fn guild_cache() -> &'static RwLock<Vec<CachedGuild>> {
 }
 
 pub async fn update_guild_cache(guilds: &[Guild]) {
-	*guild_cache().write().await = guilds
+	let mut cached: Vec<CachedGuild> = guilds
 		.iter()
 		.map(|g| CachedGuild {
 			id: g.id.clone(),
 			name: g.name.clone(),
 		})
 		.collect();
+	cached.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+	*guild_cache().write().await = cached;
 }
 
 pub async fn refresh_guild_cache(instance: &Instance) -> OpenActionResult<()> {

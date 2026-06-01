@@ -1,6 +1,7 @@
 use crate::cache::{CachedGuild, guild_cache, refresh_guild_cache};
-use crate::client::{discord_client, current_voice_channel};
+use crate::client::{current_voice_channel, discord_client};
 
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use discord_ipc_rust::models::send::commands::{
@@ -8,8 +9,9 @@ use discord_ipc_rust::models::send::commands::{
 };
 use discord_ipc_rust::models::shared::{Channel, ChannelType};
 use openaction::{
-	Action, ActionUuid, Instance, OpenActionResult, async_trait, get_instance, visible_instances,
+	Action, ActionUuid, Instance, OpenActionResult, async_trait, visible_instances,
 };
+use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
@@ -40,21 +42,9 @@ impl ChannelKind {
 	}
 }
 
-#[derive(Deserialize)]
-#[serde(tag = "action", rename_all = "snake_case")]
-enum PiRequest {
-	RefreshGuilds,
-	RequestChannels { guild_id: String },
-}
-
-struct ChannelRequest {
-	instance_id: String,
-	kind: ChannelKind,
-}
-
-fn channel_request_queue() -> &'static RwLock<Vec<ChannelRequest>> {
-	static QUEUE: OnceLock<RwLock<Vec<ChannelRequest>>> = OnceLock::new();
-	QUEUE.get_or_init(|| RwLock::new(Vec::new()))
+fn channel_request_map() -> &'static RwLock<HashMap<String, ChannelKind>> {
+	static REQUESTS: OnceLock<RwLock<HashMap<String, ChannelKind>>> = OnceLock::new();
+	REQUESTS.get_or_init(|| RwLock::new(HashMap::new()))
 }
 
 async fn emit_get_guilds(instance: &Instance, refresh: bool) -> OpenActionResult<()> {
@@ -63,6 +53,13 @@ async fn emit_get_guilds(instance: &Instance, refresh: bool) -> OpenActionResult
 	}
 
 	refresh_guild_cache(instance).await
+}
+
+async fn get_all_instances() -> impl Iterator<Item = Arc<Instance>> {
+	visible_instances(TextChannelAction::UUID)
+		.await
+		.into_iter()
+		.chain(visible_instances(VoiceChannelAction::UUID).await)
 }
 
 pub async fn send_guilds_to_pi(instance: Option<&Instance>) -> OpenActionResult<()> {
@@ -77,12 +74,7 @@ pub async fn send_guilds_to_pi(instance: Option<&Instance>) -> OpenActionResult<
 	match instance {
 		Some(inst) => inst.send_to_property_inspector(&payload).await,
 		None => {
-			let instances = visible_instances(TextChannelAction::UUID)
-				.await
-				.into_iter()
-				.chain(visible_instances(VoiceChannelAction::UUID).await);
-
-			for inst in instances {
+			for inst in get_all_instances().await {
 				let _ = inst.send_to_property_inspector(&payload).await;
 			}
 
@@ -102,18 +94,20 @@ pub async fn send_channels_to_pi(channels: &[Channel]) {
 		channels: Vec<ChannelInfo<'a>>,
 	}
 
-	let pending = std::mem::take(&mut *channel_request_queue().write().await);
-	for req in pending {
-		let filtered: Vec<_> = channels
-			.iter()
-			.filter(|c| req.kind.matches(&c.channel_type))
-			.map(|c| ChannelInfo {
-				id: &c.id,
-				name: c.name.as_deref().unwrap_or(""),
-			})
-			.collect();
+	let mut requests = channel_request_map().write().await;
 
-		if let Some(instance) = get_instance(req.instance_id).await {
+	for instance in get_all_instances().await {
+		if let Some(kind) = requests.remove(&instance.instance_id) {
+			let mut filtered: Vec<_> = channels
+				.iter()
+				.filter(|c| kind.matches(&c.channel_type))
+				.map(|c| ChannelInfo {
+					id: &c.id,
+					name: c.name.as_deref().unwrap_or(""),
+				})
+				.collect();
+			filtered.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+
 			let _ = instance
 				.send_to_property_inspector(Payload { channels: filtered })
 				.await;
@@ -121,41 +115,47 @@ pub async fn send_channels_to_pi(channels: &[Channel]) {
 	}
 }
 
-async fn handle_pi_request(
-	instance: &Instance,
-	payload: &serde_json::Value,
-	kind: ChannelKind,
-) -> OpenActionResult<()> {
-	let Ok(request) = serde_json::from_value::<PiRequest>(payload.clone()) else {
-		return Ok(());
-	};
+#[derive(Deserialize)]
+#[serde(tag = "action", rename_all = "snake_case")]
+enum PiRequest {
+	RefreshGuilds,
+	RequestChannels { guild_id: String },
+}
 
-	match request {
-		PiRequest::RefreshGuilds => {
-			emit_get_guilds(instance, true).await?;
-		}
-		PiRequest::RequestChannels { guild_id } => {
-			channel_request_queue()
-				.write()
-				.await
-				.push(ChannelRequest {
-					instance_id: instance.instance_id.clone(),
-					kind,
-				});
+impl PiRequest {
+	async fn handle(
+		instance: &Instance,
+		payload: &serde_json::Value,
+		kind: ChannelKind,
+	) -> OpenActionResult<()> {
+		let Ok(request) = serde_json::from_value(payload.clone()) else {
+			return Ok(());
+		};
 
-			let mut lock = discord_client().write().await;
-			if let Some(client) = lock.as_mut() {
-				if let Err(e) = client
-					.emit_command(&SentCommand::GetChannels(GetChannelsArgs { guild_id }))
+		match request {
+			PiRequest::RefreshGuilds => {
+				emit_get_guilds(instance, true).await?;
+			}
+			PiRequest::RequestChannels { guild_id } => {
+				channel_request_map()
+					.write()
 					.await
-				{
-					log::error!("Failed to request channels: {}", e);
+					.insert(instance.instance_id.clone(), kind);
+
+				let mut lock = discord_client().write().await;
+				if let Some(client) = lock.as_mut() {
+					if let Err(e) = client
+						.emit_command(&SentCommand::GetChannels(GetChannelsArgs { guild_id }))
+						.await
+					{
+						log::error!("Failed to request channels: {}", e);
+					}
 				}
 			}
 		}
-	}
 
-	Ok(())
+		Ok(())
+	}
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -197,7 +197,7 @@ impl Action for TextChannelAction {
 		_settings: &Self::Settings,
 		payload: &serde_json::Value,
 	) -> OpenActionResult<()> {
-		handle_pi_request(instance, payload, ChannelKind::Text).await
+		PiRequest::handle(instance, payload, ChannelKind::Text).await
 	}
 
 	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {
@@ -265,7 +265,7 @@ impl Action for VoiceChannelAction {
 		_settings: &Self::Settings,
 		payload: &serde_json::Value,
 	) -> OpenActionResult<()> {
-		handle_pi_request(instance, payload, ChannelKind::Voice).await
+		PiRequest::handle(instance, payload, ChannelKind::Voice).await
 	}
 
 	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {
