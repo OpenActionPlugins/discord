@@ -1,5 +1,5 @@
 use crate::actions::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper};
-use crate::client::{schedule_reconnect, current_voice_channel};
+use crate::client::{current_voice_channel, schedule_reconnect};
 use crate::current_settings;
 
 use discord_ipc_rust::models::receive::{
@@ -27,11 +27,11 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 				}
 			}
 			ReturnedEvent::VoiceChannelSelect(data) => {
-                handle_select_voice_channel(data.channel_id).await;
+				handle_select_voice_channel(data.channel_id).await;
 			}
 			ReturnedEvent::VoiceSettingsUpdate(voice) => {
-			    apply_voice_state(voice).await;
-			},
+				apply_voice_state(voice).await;
+			}
 			ReturnedEvent::VideoStateUpdate(state) => {
 				update_action_state(crate::actions::ToggleVideoAction::UUID, state.active).await;
 			}
@@ -50,8 +50,8 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 				crate::actions::send_channels_to_pi(&channels).await;
 			}
 			ReturnedCommand::GetSelectedVoiceChannel(channel) => {
-			    let channel_id = channel.map(|c| c.id);
-			    handle_select_voice_channel(channel_id).await;
+				let channel_id = channel.map(|c| c.id);
+				handle_select_voice_channel(channel_id).await;
 			}
 			_ => {}
 		},
@@ -63,9 +63,7 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 	}
 }
 
-async fn handle_select_voice_channel(
-	channel_id: Option<String>
-) {
+async fn handle_select_voice_channel(channel_id: Option<String>) {
 	*current_voice_channel().write().await = channel_id;
 	call_did_receive_settings(crate::actions::VoiceChannelAction::UUID).await;
 }

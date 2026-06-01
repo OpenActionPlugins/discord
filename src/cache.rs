@@ -31,7 +31,7 @@ pub async fn update_guild_cache(guilds: &[Guild]) {
 }
 
 pub async fn refresh_guild_cache(instance: &Instance) -> OpenActionResult<()> {
-    let mut lock = discord_client().write().await;
+	let mut lock = discord_client().write().await;
 	if let Some(client) = lock.as_mut() {
 		if let Err(e) = client.emit_command(&SentCommand::GetGuilds).await {
 			log::error!("Failed to request guilds: {}", e);
