@@ -1,3 +1,4 @@
+use crate::cache::{CachedGuild, guild_cache, refresh_guild_cache};
 use crate::client::discord_client;
 
 use std::sync::OnceLock;
@@ -5,7 +6,7 @@ use std::sync::OnceLock;
 use discord_ipc_rust::models::send::commands::{
 	GetChannelsArgs, SelectTextChannelArgs, SelectVoiceChannelArgs, SentCommand,
 };
-use discord_ipc_rust::models::shared::{Channel, ChannelType, Guild};
+use discord_ipc_rust::models::shared::{Channel, ChannelType};
 use openaction::{
 	Action, ActionUuid, Instance, OpenActionResult, async_trait, get_instance, visible_instances,
 };
@@ -51,39 +52,14 @@ pub fn current_voice_channel() -> &'static RwLock<Option<String>> {
 	CHANNEL.get_or_init(|| RwLock::new(None))
 }
 
-#[derive(Serialize, Clone)]
-struct CachedGuild {
-	id: String,
-	name: String,
-}
-
-fn guild_cache() -> &'static RwLock<Vec<CachedGuild>> {
-	static CACHE: OnceLock<RwLock<Vec<CachedGuild>>> = OnceLock::new();
-	CACHE.get_or_init(|| RwLock::new(Vec::new()))
-}
-
-pub async fn update_guild_cache(guilds: &[Guild]) {
-	*guild_cache().write().await = guilds
-		.iter()
-		.map(|g| CachedGuild {
-			id: g.id.clone(),
-			name: g.name.clone(),
-		})
-		.collect();
-}
-
-pub async fn clear_guild_cache() {
-	guild_cache().write().await.clear();
-}
-
-struct PendingChannelRequest {
+struct ChannelRequest {
 	instance_id: String,
 	kind: ChannelKind,
 }
 
-fn pending_channel_requests() -> &'static RwLock<Vec<PendingChannelRequest>> {
-	static PENDING: OnceLock<RwLock<Vec<PendingChannelRequest>>> = OnceLock::new();
-	PENDING.get_or_init(|| RwLock::new(Vec::new()))
+fn channel_request_queue() -> &'static RwLock<Vec<ChannelRequest>> {
+	static QUEUE: OnceLock<RwLock<Vec<ChannelRequest>>> = OnceLock::new();
+	QUEUE.get_or_init(|| RwLock::new(Vec::new()))
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -109,8 +85,8 @@ pub async fn send_guilds_to_pi(instance: Option<&Instance>) -> OpenActionResult<
 				.into_iter()
 				.chain(visible_instances(VoiceChannelAction::UUID).await);
 
-			for instance in instances {
-				let _ = instance.send_to_property_inspector(&payload).await;
+			for inst in instances {
+				let _ = inst.send_to_property_inspector(&payload).await;
 			}
 
 			Ok(())
@@ -129,7 +105,7 @@ pub async fn send_channels_to_pi(channels: &[Channel]) {
 		channels: Vec<ChannelInfo<'a>>,
 	}
 
-	let pending = std::mem::take(&mut *pending_channel_requests().write().await);
+	let pending = std::mem::take(&mut *channel_request_queue().write().await);
 	for req in pending {
 		let filtered: Vec<_> = channels
 			.iter()
@@ -159,14 +135,13 @@ async fn handle_pi_request(
 
 	match request {
 		PiRequest::RefreshGuilds => {
-			clear_guild_cache().await;
 			emit_get_guilds(instance, true).await?;
 		}
 		PiRequest::RequestChannels { guild_id } => {
-			pending_channel_requests()
+			channel_request_queue()
 				.write()
 				.await
-				.push(PendingChannelRequest {
+				.push(ChannelRequest {
 					instance_id: instance.instance_id.clone(),
 					kind,
 				});
@@ -191,15 +166,7 @@ async fn emit_get_guilds(instance: &Instance, refresh: bool) -> OpenActionResult
 		return send_guilds_to_pi(Some(instance)).await;
 	}
 
-	let mut lock = discord_client().write().await;
-	if let Some(client) = lock.as_mut() {
-		if let Err(e) = client.emit_command(&SentCommand::GetGuilds).await {
-			log::error!("Failed to request guilds: {}", e);
-			instance.show_alert().await?;
-		}
-	}
-
-	Ok(())
+	refresh_guild_cache(instance).await
 }
 
 async fn sync_voice_channel_state(
@@ -211,6 +178,7 @@ async fn sync_voice_channel_state(
 		.await
 		.as_deref()
 		.is_some_and(|ch| settings.channel_id.as_deref() == Some(ch));
+
 	instance.set_state(if is_active { 1 } else { 0 }).await
 }
 

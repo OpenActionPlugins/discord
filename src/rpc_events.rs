@@ -43,7 +43,7 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 		},
 		ReceivedItem::Command(command) => match *command {
 			ReturnedCommand::GetGuilds { guilds } => {
-				crate::actions::update_guild_cache(&guilds).await;
+				crate::cache::update_guild_cache(&guilds).await;
 				let _ = crate::actions::send_guilds_to_pi(None).await;
 			}
 			ReturnedCommand::GetChannels { channels } => {
@@ -57,7 +57,7 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 		},
 		ReceivedItem::SocketClosed => {
 			log::warn!("Discord closed; attempting to reconnect");
-			crate::actions::clear_guild_cache().await;
+			crate::cache::guild_cache().write().await.clear();
 			schedule_reconnect();
 		}
 	}
