@@ -8,11 +8,9 @@ use discord_ipc_rust::models::send::commands::{
 	GetChannelsArgs, SelectTextChannelArgs, SelectVoiceChannelArgs, SentCommand,
 };
 use discord_ipc_rust::models::shared::{Channel, ChannelType};
-use openaction::{
-	Action, ActionUuid, Instance, OpenActionResult, async_trait, visible_instances,
-};
-use std::sync::Arc;
+use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait, visible_instances};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -164,6 +162,13 @@ pub struct ChannelActionSettings {
 	pub channel_id: Option<String>,
 }
 
+impl ChannelActionSettings {
+	fn check_valid(&self) -> Option<&str> {
+		self.guild_id.as_deref().filter(|s| !s.is_empty())?;
+		self.channel_id.as_deref().filter(|s| !s.is_empty())
+	}
+}
+
 async fn sync_voice_channel_state(
 	instance: &Instance,
 	settings: &ChannelActionSettings,
@@ -201,8 +206,7 @@ impl Action for TextChannelAction {
 	}
 
 	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {
-		let Some(channel_id) = settings.channel_id.as_ref() else {
-			log::error!("No channel ID configured");
+		let Some(channel_id) = settings.check_valid() else {
 			instance.show_alert().await?;
 			return Ok(());
 		};
@@ -216,7 +220,7 @@ impl Action for TextChannelAction {
 
 		if let Err(e) = client
 			.emit_command(&SentCommand::SelectTextChannel(SelectTextChannelArgs {
-				channel_id: Some(channel_id.clone()),
+				channel_id: Some(channel_id.to_string()),
 				timeout: None,
 			}))
 			.await
@@ -276,8 +280,7 @@ impl Action for VoiceChannelAction {
 			return Ok(());
 		};
 
-		let Some(channel_id) = settings.channel_id.as_ref() else {
-			log::error!("No channel ID configured");
+		let Some(channel_id) = settings.check_valid() else {
 			instance.show_alert().await?;
 			return Ok(());
 		};
@@ -288,7 +291,7 @@ impl Action for VoiceChannelAction {
 			.as_deref()
 			.filter(|&ch| ch == channel_id)
 			.is_none()
-			.then(|| channel_id.clone());
+			.then(|| channel_id.to_string());
 
 		if let Err(e) = client
 			.emit_command(&SentCommand::SelectVoiceChannel(SelectVoiceChannelArgs {
