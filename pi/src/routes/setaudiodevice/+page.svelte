@@ -30,16 +30,29 @@
 		if (Array.isArray(payload.output_devices)) {
 			outputs = payload.output_devices;
 		}
-		if (typeof payload.selected_input_device === "string" && !$actionSettings.input_device_id) {
-			$actionSettings = { ...$actionSettings, input_device_id: payload.selected_input_device };
+		if (
+			typeof payload.selected_input_device === "string" &&
+			!$actionSettings.input_device_id
+		) {
+			$actionSettings = {
+				...$actionSettings,
+				input_device_id: payload.selected_input_device,
+			};
 		}
-		if (typeof payload.selected_output_device === "string" && !$actionSettings.output_device_id) {
-			$actionSettings = { ...$actionSettings, output_device_id: payload.selected_output_device };
+		if (
+			typeof payload.selected_output_device === "string" &&
+			!$actionSettings.output_device_id
+		) {
+			$actionSettings = {
+				...$actionSettings,
+				output_device_id: payload.selected_output_device,
+			};
 		}
 	});
 
 	function updateDeviceTarget(event: Event) {
-		const target = (event.target as HTMLSelectElement).value as AudioDeviceTarget;
+		const target = (event.target as HTMLSelectElement)
+			.value as AudioDeviceTarget;
 		$actionSettings = { ...$actionSettings, target };
 	}
 
