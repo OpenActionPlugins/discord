@@ -44,6 +44,15 @@
 	>
 		<strong class="font-semibold">Error:</strong>
 		{$globalSettings.error}
+		<button
+			on:click={() =>
+				openUrl(
+					"https://github.com/nekename/OpenDeck/wiki/0.-Discord-plugin-troubleshooting",
+				)}
+			class="mt-0.5 block cursor-pointer text-blue-400 underline hover:text-blue-300"
+		>
+			Troubleshooting
+		</button>
 	</div>
 {:else if $globalSettings.accessToken && !editing}
 	<div
