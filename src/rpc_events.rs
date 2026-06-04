@@ -1,5 +1,5 @@
 use crate::actions::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper};
-use crate::client::schedule_reconnect;
+use crate::client::{current_voice_channel, schedule_reconnect};
 use crate::current_settings;
 
 use discord_ipc_rust::models::receive::{
@@ -34,17 +34,40 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 				update_action_state(crate::actions::ToggleScreenshareAction::UUID, state.active)
 					.await;
 			}
+			ReturnedEvent::VoiceChannelSelect(data) => {
+				handle_select_voice_channel(data.channel_id).await;
+			}
 			_ => {}
 		},
-		ReceivedItem::Command(command) => {
-			if let ReturnedCommand::GetVoiceSettings(voice) = *command {
+		ReceivedItem::Command(command) => match *command {
+			ReturnedCommand::GetVoiceSettings(voice) => {
 				apply_voice_state(voice).await;
 			}
-		}
+			ReturnedCommand::GetGuilds { guilds } => {
+				crate::cache::update_guild_cache(&guilds).await;
+				crate::actions::channel::send_guilds_to_pi(None).await;
+			}
+			ReturnedCommand::GetChannels { channels } => {
+				crate::actions::channel::send_channels_to_pi(&channels).await;
+			}
+			ReturnedCommand::GetSelectedVoiceChannel(channel) => {
+				let channel_id = channel.map(|c| c.id);
+				handle_select_voice_channel(channel_id).await;
+			}
+			_ => {}
+		},
 		ReceivedItem::SocketClosed => {
 			log::warn!("Discord closed; attempting to reconnect");
+			crate::cache::guild_cache().write().await.clear();
 			schedule_reconnect();
 		}
+	}
+}
+
+async fn handle_select_voice_channel(channel_id: Option<String>) {
+	*current_voice_channel().write().await = channel_id;
+	for instance in visible_instances(crate::actions::VoiceChannelAction::UUID).await {
+		let _ = instance.get_settings().await;
 	}
 }
 

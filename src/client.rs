@@ -21,6 +21,12 @@ pub fn discord_client() -> &'static RwLock<Option<DiscordIpcClient>> {
 	CLIENT.get_or_init(|| RwLock::new(None))
 }
 
+// Shared place to store the currently selected voice channel ID.
+pub fn current_voice_channel() -> &'static RwLock<Option<String>> {
+	static CHANNEL: OnceLock<RwLock<Option<String>>> = OnceLock::new();
+	CHANNEL.get_or_init(|| RwLock::new(None))
+}
+
 // Store the latest error message in the global settings so the UI can surface it.
 pub async fn update_error(error: &str) {
 	let mut current = current_settings().write().await;
@@ -105,10 +111,24 @@ async fn setup_discord_client(
 	.await
 	.map_err(|e| format!("Failed to subscribe to screen share state updates: {}", e))?;
 
+	rpc.emit_command(&SentCommand::Subscribe(
+		SubscribeableEvent::VoiceChannelSelect,
+	))
+	.await
+	.map_err(|e| format!("Failed to subscribe to voice channel select events: {}", e))?;
+
 	// Request current voice settings so buttons reflect the initial state immediately.
 	rpc.emit_command(&SentCommand::GetVoiceSettings)
 		.await
 		.map_err(|e| format!("Failed to fetch initial voice settings: {}", e))?;
+
+	rpc.emit_command(&SentCommand::GetGuilds)
+		.await
+		.map_err(|e| format!("Failed to fetch guilds: {}", e))?;
+
+	rpc.emit_command(&SentCommand::GetSelectedVoiceChannel)
+		.await
+		.map_err(|e| format!("Failed to fetch initially selected voice channel: {}", e))?;
 
 	let mut current = current_settings().write().await;
 	current.error = None;
@@ -200,6 +220,8 @@ async fn create_discord_client(settings: &DiscordSettings) -> Result<DiscordIpcC
 			client_id: settings.client_id.clone(),
 			scopes: vec![
 				"rpc".to_owned(),
+				"rpc.voice.read".to_owned(),
+				"rpc.voice.write".to_owned(),
 				"rpc.video.read".to_owned(),
 				"rpc.video.write".to_owned(),
 				"rpc.screenshare.read".to_owned(),
