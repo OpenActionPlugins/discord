@@ -27,16 +27,16 @@ impl ChannelKind {
 			| ChannelType::GuildAnnouncement
 			| ChannelType::AnnouncementThread
 			| ChannelType::PublicThread
-			| ChannelType::PrivateThread
-			| ChannelType::GuildForum
-			| ChannelType::GuildMedia => matches!(self, ChannelKind::Text),
+			| ChannelType::PrivateThread => matches!(self, ChannelKind::Text),
 			ChannelType::GuildVoice | ChannelType::GuildStageVoice => {
 				matches!(self, ChannelKind::Voice)
 			}
 			ChannelType::DirectMessage
 			| ChannelType::GroupDirectMessage
 			| ChannelType::GuildCategory
-			| ChannelType::GuildDirectory => false,
+			| ChannelType::GuildDirectory
+			| ChannelType::GuildForum
+			| ChannelType::GuildMedia => false,
 		}
 	}
 }
