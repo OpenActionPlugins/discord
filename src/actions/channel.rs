@@ -2,18 +2,19 @@ use crate::cache::{CachedGuild, guild_cache, refresh_guild_cache};
 use crate::client::{current_voice_channel, discord_client};
 
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use discord_ipc_rust::models::send::commands::{
 	GetChannelsArgs, SelectTextChannelArgs, SelectVoiceChannelArgs, SentCommand,
 };
 use discord_ipc_rust::models::shared::{Channel, ChannelType};
-use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait, visible_instances};
+use openaction::{
+	Action, ActionUuid, Instance, InstanceId, OpenActionResult, async_trait, visible_instances,
+};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use tokio::sync::RwLock;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy)]
 enum ChannelKind {
 	Text,
 	Voice,
@@ -21,36 +22,28 @@ enum ChannelKind {
 
 impl ChannelKind {
 	fn matches(self, channel_type: &ChannelType) -> bool {
-		match self {
-			Self::Text => matches!(
-				channel_type,
-				ChannelType::GuildText
-					| ChannelType::GuildAnnouncement
-					| ChannelType::AnnouncementThread
-					| ChannelType::PublicThread
-					| ChannelType::PrivateThread
-					| ChannelType::GuildForum
-					| ChannelType::GuildMedia
-			),
-			Self::Voice => matches!(
-				channel_type,
-				ChannelType::GuildVoice | ChannelType::GuildStageVoice
-			),
+		match channel_type {
+			ChannelType::GuildText
+			| ChannelType::GuildAnnouncement
+			| ChannelType::AnnouncementThread
+			| ChannelType::PublicThread
+			| ChannelType::PrivateThread
+			| ChannelType::GuildForum
+			| ChannelType::GuildMedia => matches!(self, ChannelKind::Text),
+			ChannelType::GuildVoice | ChannelType::GuildStageVoice => {
+				matches!(self, ChannelKind::Voice)
+			}
+			ChannelType::DirectMessage
+			| ChannelType::GroupDirectMessage
+			| ChannelType::GuildCategory
+			| ChannelType::GuildDirectory => false,
 		}
 	}
 }
 
-fn channel_request_map() -> &'static RwLock<HashMap<String, ChannelKind>> {
-	static REQUESTS: OnceLock<RwLock<HashMap<String, ChannelKind>>> = OnceLock::new();
+fn channel_request_map() -> &'static RwLock<HashMap<InstanceId, ChannelKind>> {
+	static REQUESTS: OnceLock<RwLock<HashMap<InstanceId, ChannelKind>>> = OnceLock::new();
 	REQUESTS.get_or_init(|| RwLock::new(HashMap::new()))
-}
-
-async fn emit_get_guilds(instance: &Instance, refresh: bool) -> OpenActionResult<()> {
-	if !refresh && !guild_cache().read().await.is_empty() {
-		return send_guilds_to_pi(Some(instance)).await;
-	}
-
-	refresh_guild_cache(instance).await
 }
 
 async fn get_all_instances() -> impl Iterator<Item = Arc<Instance>> {
@@ -60,36 +53,47 @@ async fn get_all_instances() -> impl Iterator<Item = Arc<Instance>> {
 		.chain(visible_instances(VoiceChannelAction::UUID).await)
 }
 
-pub async fn send_guilds_to_pi(instance: Option<&Instance>) -> OpenActionResult<()> {
+pub async fn send_guilds_to_pi(instance: Option<&Instance>) {
 	#[derive(Serialize)]
-	struct Payload<'a> {
-		guilds: &'a [CachedGuild],
+	struct Payload {
+		guilds: Vec<CachedGuild>,
 	}
 
 	let cache = guild_cache().read().await;
-	let payload = Payload { guilds: &cache };
+	let payload = Payload {
+		guilds: cache.clone(),
+	};
 
 	match instance {
-		Some(inst) => inst.send_to_property_inspector(&payload).await,
+		Some(inst) => {
+			let _ = inst.send_to_property_inspector(&payload).await;
+		}
 		None => {
 			for inst in get_all_instances().await {
 				let _ = inst.send_to_property_inspector(&payload).await;
 			}
-
-			Ok(())
 		}
+	}
+}
+
+async fn send_cached_guilds_to_pi(instance: &Instance) -> OpenActionResult<()> {
+	if !guild_cache().read().await.is_empty() {
+		send_guilds_to_pi(Some(instance)).await;
+		Ok(())
+	} else {
+		refresh_guild_cache(instance).await
 	}
 }
 
 pub async fn send_channels_to_pi(channels: &[Channel]) {
 	#[derive(Serialize)]
-	struct ChannelInfo<'a> {
-		id: &'a str,
-		name: &'a str,
+	struct ChannelInfo {
+		id: String,
+		name: String,
 	}
 	#[derive(Serialize)]
-	struct Payload<'a> {
-		channels: Vec<ChannelInfo<'a>>,
+	struct Payload {
+		channels: Vec<ChannelInfo>,
 	}
 
 	let mut requests = channel_request_map().write().await;
@@ -100,11 +104,11 @@ pub async fn send_channels_to_pi(channels: &[Channel]) {
 				.iter()
 				.filter(|c| kind.matches(&c.channel_type))
 				.map(|c| ChannelInfo {
-					id: &c.id,
-					name: c.name.as_deref().unwrap_or(""),
+					id: c.id.clone(),
+					name: c.name.as_deref().unwrap_or("").to_owned(),
 				})
 				.collect();
-			filtered.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+			filtered.sort_by_key(|x| x.name.to_lowercase());
 
 			let _ = instance
 				.send_to_property_inspector(Payload { channels: filtered })
@@ -116,7 +120,6 @@ pub async fn send_channels_to_pi(channels: &[Channel]) {
 #[derive(Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 enum PiRequest {
-	RefreshGuilds,
 	RequestChannels { guild_id: String },
 }
 
@@ -131,23 +134,19 @@ impl PiRequest {
 		};
 
 		match request {
-			PiRequest::RefreshGuilds => {
-				emit_get_guilds(instance, true).await?;
-			}
 			PiRequest::RequestChannels { guild_id } => {
 				channel_request_map()
 					.write()
 					.await
 					.insert(instance.instance_id.clone(), kind);
 
-				let mut lock = discord_client().write().await;
-				if let Some(client) = lock.as_mut() {
-					if let Err(e) = client
+				let mut client_lock = discord_client().write().await;
+				if let Some(client) = client_lock.as_mut()
+					&& let Err(e) = client
 						.emit_command(&SentCommand::GetChannels(GetChannelsArgs { guild_id }))
 						.await
-					{
-						log::error!("Failed to request channels: {}", e);
-					}
+				{
+					log::error!("Failed to request channels: {}", e);
 				}
 			}
 		}
@@ -158,28 +157,8 @@ impl PiRequest {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ChannelActionSettings {
-	pub guild_id: Option<String>,
-	pub channel_id: Option<String>,
-}
-
-impl ChannelActionSettings {
-	fn check_valid(&self) -> Option<&str> {
-		self.guild_id.as_deref().filter(|s| !s.is_empty())?;
-		self.channel_id.as_deref().filter(|s| !s.is_empty())
-	}
-}
-
-async fn sync_voice_channel_state(
-	instance: &Instance,
-	settings: &ChannelActionSettings,
-) -> OpenActionResult<()> {
-	let is_active = current_voice_channel()
-		.read()
-		.await
-		.as_deref()
-		.is_some_and(|ch| settings.channel_id.as_deref() == Some(ch));
-
-	instance.set_state(if is_active { 1 } else { 0 }).await
+	pub guild_id: String,
+	pub channel_id: String,
 }
 
 pub struct TextChannelAction;
@@ -193,7 +172,7 @@ impl Action for TextChannelAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		emit_get_guilds(instance, false).await
+		send_cached_guilds_to_pi(instance).await
 	}
 
 	async fn send_to_plugin(
@@ -206,13 +185,13 @@ impl Action for TextChannelAction {
 	}
 
 	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {
-		let Some(channel_id) = settings.check_valid() else {
+		if settings.channel_id.is_empty() {
 			instance.show_alert().await?;
 			return Ok(());
-		};
+		}
 
-		let mut lock = discord_client().write().await;
-		let Some(client) = lock.as_mut() else {
+		let mut client_lock = discord_client().write().await;
+		let Some(client) = client_lock.as_mut() else {
 			log::error!("Discord client not initialized");
 			instance.show_alert().await?;
 			return Ok(());
@@ -220,7 +199,7 @@ impl Action for TextChannelAction {
 
 		if let Err(e) = client
 			.emit_command(&SentCommand::SelectTextChannel(SelectTextChannelArgs {
-				channel_id: Some(channel_id.to_string()),
+				channel_id: Some(settings.channel_id.clone()),
 				timeout: None,
 			}))
 			.await
@@ -231,6 +210,19 @@ impl Action for TextChannelAction {
 
 		Ok(())
 	}
+}
+
+async fn sync_voice_channel_state(
+	instance: &Instance,
+	settings: &ChannelActionSettings,
+) -> OpenActionResult<()> {
+	let is_active = current_voice_channel()
+		.read()
+		.await
+		.as_deref()
+		.is_some_and(|ch| settings.channel_id == ch);
+
+	instance.set_state(if is_active { 1 } else { 0 }).await
 }
 
 pub struct VoiceChannelAction;
@@ -260,7 +252,7 @@ impl Action for VoiceChannelAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		emit_get_guilds(instance, false).await
+		send_cached_guilds_to_pi(instance).await
 	}
 
 	async fn send_to_plugin(
@@ -273,25 +265,25 @@ impl Action for VoiceChannelAction {
 	}
 
 	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {
-		let mut lock = discord_client().write().await;
-		let Some(client) = lock.as_mut() else {
+		if settings.channel_id.is_empty() {
+			instance.show_alert().await?;
+			return Ok(());
+		}
+
+		let mut client_lock = discord_client().write().await;
+		let Some(client) = client_lock.as_mut() else {
 			log::error!("Discord client not initialized");
 			instance.show_alert().await?;
 			return Ok(());
 		};
 
-		let Some(channel_id) = settings.check_valid() else {
-			instance.show_alert().await?;
-			return Ok(());
+		let current = current_voice_channel().read().await;
+		let target = if current.as_deref() != Some(settings.channel_id.as_str()) {
+			Some(settings.channel_id.clone())
+		} else {
+			None
 		};
-
-		let target = current_voice_channel()
-			.read()
-			.await
-			.as_deref()
-			.filter(|&ch| ch == channel_id)
-			.is_none()
-			.then(|| channel_id.to_string());
+		drop(current);
 
 		if let Err(e) = client
 			.emit_command(&SentCommand::SelectVoiceChannel(SelectVoiceChannelArgs {
@@ -302,7 +294,7 @@ impl Action for VoiceChannelAction {
 			}))
 			.await
 		{
-			log::error!("Failed to toggle voice channel: {}", e);
+			log::error!("Failed to select or deselect voice channel: {}", e);
 			instance.show_alert().await?;
 		}
 

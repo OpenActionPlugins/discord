@@ -1,4 +1,4 @@
-mod channel;
+pub mod channel;
 mod screen_share;
 mod video;
 pub mod voice_settings;

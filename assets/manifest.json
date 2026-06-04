@@ -122,7 +122,7 @@
 			"UUID": "me.amankhanna.oadiscord.voicechannel",
 			"Name": "Voice Channel",
 			"Icon": "actions/voicechannel_0",
-			"Tooltip": "Join/Leave a specific voice channel",
+			"Tooltip": "Join or leave a specific voice channel",
 			"Controllers": ["Keypad"],
 			"PropertyInspectorPath": "pi/selectchannel.html",
 			"DisableAutomaticStates": true,

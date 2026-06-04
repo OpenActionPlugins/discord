@@ -21,7 +21,7 @@ pub fn discord_client() -> &'static RwLock<Option<DiscordIpcClient>> {
 	CLIENT.get_or_init(|| RwLock::new(None))
 }
 
-// Shared place to store the currently selected voice channel ID
+// Shared place to store the currently selected voice channel ID.
 pub fn current_voice_channel() -> &'static RwLock<Option<String>> {
 	static CHANNEL: OnceLock<RwLock<Option<String>>> = OnceLock::new();
 	CHANNEL.get_or_init(|| RwLock::new(None))
@@ -100,12 +100,6 @@ async fn setup_discord_client(
 	.map_err(|e| format!("Failed to subscribe to voice settings updates: {}", e))?;
 
 	rpc.emit_command(&SentCommand::Subscribe(
-		SubscribeableEvent::VoiceChannelSelect,
-	))
-	.await
-	.map_err(|e| format!("Failed to subscribe to voice channel select: {}", e))?;
-
-	rpc.emit_command(&SentCommand::Subscribe(
 		SubscribeableEvent::VideoStateUpdate,
 	))
 	.await
@@ -117,20 +111,24 @@ async fn setup_discord_client(
 	.await
 	.map_err(|e| format!("Failed to subscribe to screen share state updates: {}", e))?;
 
-	// Request current selected voice channel
-	rpc.emit_command(&SentCommand::GetSelectedVoiceChannel)
-		.await
-		.map_err(|e| format!("Failed to fetch initial selected voice channel: {}", e))?;
+	rpc.emit_command(&SentCommand::Subscribe(
+		SubscribeableEvent::VoiceChannelSelect,
+	))
+	.await
+	.map_err(|e| format!("Failed to subscribe to voice channel select events: {}", e))?;
 
 	// Request current voice settings so buttons reflect the initial state immediately.
 	rpc.emit_command(&SentCommand::GetVoiceSettings)
 		.await
 		.map_err(|e| format!("Failed to fetch initial voice settings: {}", e))?;
 
-	// Request guild list
 	rpc.emit_command(&SentCommand::GetGuilds)
 		.await
 		.map_err(|e| format!("Failed to fetch guilds: {}", e))?;
+
+	rpc.emit_command(&SentCommand::GetSelectedVoiceChannel)
+		.await
+		.map_err(|e| format!("Failed to fetch initially selected voice channel: {}", e))?;
 
 	let mut current = current_settings().write().await;
 	current.error = None;

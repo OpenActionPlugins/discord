@@ -1,11 +1,11 @@
+use crate::client::discord_client;
+
 use std::sync::OnceLock;
 
 use discord_ipc_rust::models::{send::commands::SentCommand, shared::Guild};
 use openaction::{Instance, OpenActionResult};
 use serde::Serialize;
 use tokio::sync::RwLock;
-
-use crate::client::discord_client;
 
 #[derive(Serialize, Clone)]
 pub struct CachedGuild {
@@ -26,17 +26,17 @@ pub async fn update_guild_cache(guilds: &[Guild]) {
 			name: g.name.clone(),
 		})
 		.collect();
-	cached.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+	cached.sort_by_key(|x| x.name.to_lowercase());
 	*guild_cache().write().await = cached;
 }
 
 pub async fn refresh_guild_cache(instance: &Instance) -> OpenActionResult<()> {
-	let mut lock = discord_client().write().await;
-	if let Some(client) = lock.as_mut() {
-		if let Err(e) = client.emit_command(&SentCommand::GetGuilds).await {
-			log::error!("Failed to request guilds: {}", e);
-			instance.show_alert().await?;
-		}
+	let mut client_lock = discord_client().write().await;
+	if let Some(client) = client_lock.as_mut()
+		&& let Err(e) = client.emit_command(&SentCommand::GetGuilds).await
+	{
+		log::error!("Failed to request guilds: {}", e);
+		instance.show_alert().await?;
 	}
 
 	Ok(())
