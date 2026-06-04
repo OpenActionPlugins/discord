@@ -1,4 +1,5 @@
 mod actions;
+mod cache;
 mod client;
 mod oauth;
 mod rpc_events;
@@ -94,6 +95,9 @@ async fn main() -> OpenActionResult<()> {
 	register_action(ToggleVideoAction).await;
 	register_action(ToggleScreenshareAction).await;
 	register_action(VolumeControlAction).await;
+	register_action(SetAudioDeviceAction).await;
+	register_action(TextChannelAction).await;
+	register_action(VoiceChannelAction).await;
 
 	run(std::env::args().collect()).await
 }

@@ -1,6 +1,8 @@
 pub mod audio_device_utils;
+pub mod set_audio_device;
 mod volume_control;
 
+pub use set_audio_device::SetAudioDeviceAction;
 pub use volume_control::VolumeControlAction;
 
 use crate::client::discord_client;

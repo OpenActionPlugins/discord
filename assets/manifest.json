@@ -1,7 +1,7 @@
 {
 	"Name": "Discord",
 	"Author": "nekename",
-	"Version": "0.3.0",
+	"Version": "0.4.0",
 	"Category": "Discord",
 	"Icon": "icon",
 	"OS": [{ "Platform": "windows" }, { "Platform": "mac" }, { "Platform": "linux" }],
@@ -97,6 +97,36 @@
 			"PropertyInspectorPath": "pi/volumecontrol.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/volumeControl" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.setaudiodevice",
+			"Name": "Set Audio Device",
+			"Icon": "actions/headphonesAndMicrophone",
+			"Tooltip": "Set the audio input and output devices used in voice calls",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/setaudiodevice.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/headphonesAndMicrophone" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.textchannel",
+			"Name": "Text Channel",
+			"Icon": "actions/textchannel",
+			"Tooltip": "Jump to a specific text channel",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/selectchannel.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/textchannel" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.voicechannel",
+			"Name": "Voice Channel",
+			"Icon": "actions/voicechannel_0",
+			"Tooltip": "Join or leave a specific voice channel",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/selectchannel.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/voicechannel_0" }, { "Image": "actions/voicechannel_1" }]
 		}
 	]
 }
