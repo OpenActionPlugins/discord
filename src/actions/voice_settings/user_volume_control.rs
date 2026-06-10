@@ -47,17 +47,12 @@ async fn update_user_voice_settings(
 		return Ok(());
 	};
 
-	match client
+	if let Err(e) = client
 		.emit_command(&SentCommand::SetUserVoiceSettings(args))
 		.await
 	{
-		Ok(_) => {
-			// NO-OP
-		}
-		Err(e) => {
-			log::error!("Failed to update voice state: {}", e);
-			instance.show_alert().await?;
-		}
+		log::error!("Failed to update voice state: {}", e);
+		instance.show_alert().await?;
 	}
 
 	Ok(())
