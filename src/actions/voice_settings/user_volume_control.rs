@@ -1,7 +1,7 @@
+use super::audio_device_utils::AudioDeviceType;
+
 use crate::actions::audio_device_utils::user_voice_settings_map;
 use crate::client::discord_client;
-
-use super::audio_device_utils::AudioDeviceType;
 
 use discord_ipc_rust::models::send::commands::{SentCommand, SetUserVoiceSettingsArgs};
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
@@ -51,7 +51,7 @@ async fn update_user_voice_settings(
 		.emit_command(&SentCommand::SetUserVoiceSettings(args))
 		.await
 	{
-		log::error!("Failed to update voice state: {}", e);
+		log::error!("Failed to update user voice settings: {}", e);
 		instance.show_alert().await?;
 	}
 
@@ -152,7 +152,7 @@ impl Action for UserVolumeControlAction {
 
 	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {
 		let Some(user_id) = settings.user_id.as_ref() else {
-			log::error!("User ID not specified in settings");
+			log::error!("Failed to update user voice settings: no user ID provided");
 			instance.show_alert().await?;
 			return Ok(());
 		};
@@ -210,7 +210,7 @@ impl Action for UserVolumeControlAction {
 		if let Some(user_id) = &settings.user_id {
 			adjust_user_volume(instance, user_id.clone(), delta, false).await
 		} else {
-			log::error!("User ID not specified in settings");
+			log::error!("Failed to adjust user volume: no user ID provided");
 			instance.show_alert().await?;
 			Ok(())
 		}

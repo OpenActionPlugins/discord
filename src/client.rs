@@ -21,7 +21,7 @@ pub fn discord_client() -> &'static RwLock<Option<DiscordIpcClient>> {
 	CLIENT.get_or_init(|| RwLock::new(None))
 }
 
-// Shared place to store the discord client's user ID.
+// Shared place to store the user ID of the authenticated user.
 pub fn current_user_id() -> &'static RwLock<Option<String>> {
 	static USER_ID: OnceLock<RwLock<Option<String>>> = OnceLock::new();
 	USER_ID.get_or_init(|| RwLock::new(None))

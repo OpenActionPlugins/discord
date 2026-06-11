@@ -102,7 +102,7 @@
 			"UUID": "me.amankhanna.oadiscord.uservolumecontrol",
 			"Name": "User Volume Control",
 			"Icon": "actions/userVolumeControl",
-			"Tooltip": "Control the volume levels of another user",
+			"Tooltip": "Control the output volume level of another user",
 			"Controllers": ["Keypad", "Encoder"],
 			"PropertyInspectorPath": "pi/uservolumecontrol.html",
 			"DisableAutomaticStates": true,
