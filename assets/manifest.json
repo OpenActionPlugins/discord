@@ -99,6 +99,16 @@
 			"States": [{ "Image": "actions/volumeControl" }]
 		},
 		{
+			"UUID": "me.amankhanna.oadiscord.uservolumecontrol",
+			"Name": "User Volume Control",
+			"Icon": "actions/userVolumeControl",
+			"Tooltip": "Control the output volume level of another user",
+			"Controllers": ["Keypad", "Encoder"],
+			"PropertyInspectorPath": "pi/uservolumecontrol.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/userVolumeControl" }]
+		},
+		{
 			"UUID": "me.amankhanna.oadiscord.setaudiodevice",
 			"Name": "Set Audio Device",
 			"Icon": "actions/headphonesAndMicrophone",

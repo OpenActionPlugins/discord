@@ -21,6 +21,12 @@ pub fn discord_client() -> &'static RwLock<Option<DiscordIpcClient>> {
 	CLIENT.get_or_init(|| RwLock::new(None))
 }
 
+// Shared place to store the user ID of the authenticated user.
+pub fn current_user_id() -> &'static RwLock<Option<String>> {
+	static USER_ID: OnceLock<RwLock<Option<String>>> = OnceLock::new();
+	USER_ID.get_or_init(|| RwLock::new(None))
+}
+
 // Shared place to store the currently selected voice channel ID.
 pub fn current_voice_channel() -> &'static RwLock<Option<String>> {
 	static CHANNEL: OnceLock<RwLock<Option<String>>> = OnceLock::new();
@@ -74,6 +80,44 @@ pub(crate) fn schedule_reconnect() {
 			sleep(Duration::from_secs(5)).await;
 		}
 	});
+}
+
+pub async fn update_voice_state_subscription(channel_id: String, subscribe: bool) {
+	let mut client_lock = discord_client().write().await;
+	let Some(client) = client_lock.as_mut() else {
+		log::error!("Discord client not initialized");
+		return;
+	};
+
+	let events = [
+		SubscribeableEvent::VoiceStateCreate {
+			channel_id: channel_id.clone(),
+		},
+		SubscribeableEvent::VoiceStateUpdate {
+			channel_id: channel_id.clone(),
+		},
+		SubscribeableEvent::VoiceStateDelete { channel_id },
+	];
+
+	for event in events {
+		let command = if subscribe {
+			SentCommand::Subscribe(event)
+		} else {
+			SentCommand::Unsubscribe(event)
+		};
+
+		if let Err(e) = client.emit_command(&command).await {
+			log::error!(
+				"Failed to {} voice state events: {}",
+				if subscribe {
+					"subscribe to"
+				} else {
+					"unsubscribe from"
+				},
+				e
+			);
+		}
+	}
 }
 
 // Sets up an authenticated Discord IPC client with event subscriptions and handlers.
@@ -149,6 +193,8 @@ async fn create_discord_client(settings: &DiscordSettings) -> Result<DiscordIpcC
 		.await
 		.map_err(|e| format!("Failed to connect to Discord: {}", e))?;
 	log::info!("Connected to Discord as {}", user.username);
+
+	*current_user_id().write().await = Some(user.id);
 
 	if !settings.access_token.is_empty() {
 		setup_discord_client(&mut rpc, settings.access_token.clone()).await?;

@@ -1,6 +1,7 @@
-use std::sync::OnceLock;
+use std::{collections::HashMap, sync::OnceLock};
 
 use discord_ipc_rust::models::{
+	receive::events::VoiceStateData,
 	send::commands::SetVoiceSettingsArgs,
 	shared::voice::{VoiceAvailableDevice, VoiceSettingsInput, VoiceSettingsOutput},
 };
@@ -80,6 +81,31 @@ impl From<AudioDeviceWrapper> for SetVoiceSettingsArgs {
 	}
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct UserVoiceSettings {
+	pub nick: String,
+	pub volume: f32,
+	pub mute: bool,
+	pub self_mute: bool,
+	pub self_deaf: bool,
+	pub server_mute: bool,
+	pub server_deaf: bool,
+}
+
+impl From<VoiceStateData> for UserVoiceSettings {
+	fn from(value: VoiceStateData) -> Self {
+		Self {
+			nick: value.nick,
+			volume: value.volume,
+			mute: value.mute,
+			self_mute: value.state.self_mute,
+			self_deaf: value.state.self_deaf,
+			server_mute: value.state.mute,
+			server_deaf: value.state.deaf,
+		}
+	}
+}
+
 pub fn audio_input_settings() -> &'static RwLock<Option<AudioDeviceWrapper>> {
 	static SETTINGS: OnceLock<RwLock<Option<AudioDeviceWrapper>>> = OnceLock::new();
 	SETTINGS.get_or_init(|| RwLock::new(None))
@@ -88,6 +114,11 @@ pub fn audio_input_settings() -> &'static RwLock<Option<AudioDeviceWrapper>> {
 pub fn audio_output_settings() -> &'static RwLock<Option<AudioDeviceWrapper>> {
 	static SETTINGS: OnceLock<RwLock<Option<AudioDeviceWrapper>>> = OnceLock::new();
 	SETTINGS.get_or_init(|| RwLock::new(None))
+}
+
+pub fn user_voice_settings_map() -> &'static RwLock<HashMap<String, UserVoiceSettings>> {
+	static MAP: OnceLock<RwLock<HashMap<String, UserVoiceSettings>>> = OnceLock::new();
+	MAP.get_or_init(Default::default)
 }
 
 pub async fn get_audio_device_settings(
