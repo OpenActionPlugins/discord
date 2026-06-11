@@ -99,13 +99,21 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 }
 
 async fn handle_select_voice_channel(channel_id: Option<String>) {
-	*current_voice_channel().write().await = channel_id;
+	let old_channel = current_voice_channel().read().await.clone();
 
-	if let Some(channel_id) = current_voice_channel().read().await.clone() {
-		crate::client::update_voice_state_subscription(channel_id, true).await;
-	} else {
-		crate::client::update_voice_state_subscription("".to_owned(), false).await;
+	if old_channel == channel_id {
+		return;
+	}
+
+	if let Some(old_channel) = old_channel {
+		crate::client::update_voice_state_subscription(old_channel, false).await;
 		user_voice_settings_map().write().await.clear();
+	}
+
+	*current_voice_channel().write().await = channel_id.clone();
+
+	if let Some(new_channel) = channel_id {
+		crate::client::update_voice_state_subscription(new_channel, true).await;
 	}
 
 	for instance in visible_instances(crate::actions::VoiceChannelAction::UUID).await {
