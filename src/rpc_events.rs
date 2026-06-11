@@ -87,6 +87,10 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 				let channel_id = channel.map(|c| c.id);
 				handle_select_voice_channel(channel_id).await;
 			}
+			ReturnedCommand::GetSoundboardSounds(sounds) => {
+				crate::cache::update_soundboard_cache(&sounds).await;
+				crate::actions::soundboard::send_sounds_to_pi(None).await;
+			}
 			_ => {}
 		},
 		ReceivedItem::SocketClosed => {

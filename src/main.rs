@@ -99,6 +99,7 @@ async fn main() -> OpenActionResult<()> {
 	register_action(SetAudioDeviceAction).await;
 	register_action(TextChannelAction).await;
 	register_action(VoiceChannelAction).await;
+	register_action(PlaySoundboardSoundAction).await;
 
 	run(std::env::args().collect()).await
 }

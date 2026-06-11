@@ -137,6 +137,16 @@
 			"PropertyInspectorPath": "pi/selectchannel.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/voicechannel_0" }, { "Image": "actions/voicechannel_1" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.playsoundboardsound",
+			"Name": "Soundboard",
+			"Icon": "actions/soundboard",
+			"Tooltip": "Play soundboard",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/soundboard.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/soundboard" }]
 		}
 	]
 }
