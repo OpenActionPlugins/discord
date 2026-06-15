@@ -37,7 +37,7 @@
 		}
 
 		return [...groups.values()];
-});
+	});
 
 	eventTarget.addEventListener("sendToPropertyInspector", (event: any) => {
 		const payload = event.detail?.payload ?? {};
