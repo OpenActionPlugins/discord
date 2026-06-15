@@ -11,7 +11,7 @@
 		emoji_id: string | null;
 	}
 
-	let guilds: Guild[] = $state([]);
+	let guildMap = $state(new Map<string, string>());
 	let sounds: SoundboardSound[] = $state([]);
 	let search = $state("");
 
@@ -23,25 +23,28 @@
 			string,
 			{ label: string; sounds: SoundboardSound[] }
 		>();
+
 		for (const sound of sounds) {
 			if (!sound.name.toLowerCase().includes(term)) continue;
+
 			if (!groups.has(sound.guild_id)) {
-				const guild = guilds.find((g) => g.id === sound.guild_id);
 				groups.set(sound.guild_id, {
-					label: guild?.name ?? sound.guild_id,
+					label: guildMap.get(sound.guild_id) ?? sound.guild_id,
 					sounds: [],
 				});
 			}
+
 			groups.get(sound.guild_id)!.sounds.push(sound);
 		}
+
 		return [...groups.values()];
-	});
+});
 
 	eventTarget.addEventListener("sendToPropertyInspector", (event: any) => {
 		const payload = event.detail?.payload ?? {};
 
 		if (Array.isArray(payload.guilds)) {
-			guilds = payload.guilds;
+			guildMap = new Map(payload.guilds.map((g: Guild) => [g.id, g.name]));
 		}
 
 		if (Array.isArray(payload.sounds)) {
