@@ -13,19 +13,18 @@
 
 	let guildMap = $state(new Map<string, string>());
 	let sounds: SoundboardSound[] = $state([]);
-	let search = $state("");
 
+	let search = $state("");
 	let selectedSound = $derived($actionSettings.sound?.sound_id ?? "");
 
 	let groupedSounds = $derived.by(() => {
-		const term = search.toLowerCase();
 		const groups = new Map<
 			string,
 			{ label: string; sounds: SoundboardSound[] }
 		>();
 
 		for (const sound of sounds) {
-			if (!sound.name.toLowerCase().includes(term)) continue;
+			if (!sound.name.toLowerCase().includes(search.toLowerCase())) continue;
 
 			if (!groups.has(sound.guild_id)) {
 				groups.set(sound.guild_id, {
