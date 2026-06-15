@@ -21,6 +21,7 @@ pub struct CachedSoundboardSound {
 	pub name: String,
 	pub guild_id: String,
 	pub sound_id: String,
+	pub emoji_id: Option<String>,
 }
 
 impl From<CachedSoundboardSound> for PlaySoundboardSoundArgs {
@@ -69,11 +70,11 @@ pub async fn refresh_guild_cache(instance: &Instance) -> OpenActionResult<()> {
 pub async fn update_soundboard_cache(sounds: &[SoundboardSound]) {
 	let mut cached: Vec<CachedSoundboardSound> = sounds
 		.iter()
-		.filter(|s| !s.available)
 		.map(|s| CachedSoundboardSound {
 			name: s.name.clone(),
 			guild_id: s.guild_id.clone(),
 			sound_id: s.sound_id.clone(),
+			emoji_id: s.emoji_id.clone(),
 		})
 		.collect();
 	cached.sort_by_key(|x| x.name.to_lowercase());

@@ -30,9 +30,15 @@ pub async fn send_sounds_to_pi(instance: Option<&Instance>) {
 	}
 }
 
+async fn set_button_title(instance: &Instance, sound: Option<&CachedSoundboardSound>) {
+	let title = sound.map(|s| s.name.chars().take(5).collect::<String>());
+	let _ = instance.set_title(title, None).await;
+}
+
 async fn send_cached_sounds_to_pi(instance: &Instance) -> OpenActionResult<()> {
 	if !soundboard_sounds_cache().read().await.is_empty() {
 		send_sounds_to_pi(Some(instance)).await;
+		crate::actions::channel::send_guilds_to_pi(Some(instance)).await;
 		Ok(())
 	} else {
 		refresh_soundboard_cache(instance).await
@@ -50,6 +56,24 @@ pub struct PlaySoundboardSoundAction;
 impl Action for PlaySoundboardSoundAction {
 	const UUID: ActionUuid = "me.amankhanna.oadiscord.playsoundboardsound";
 	type Settings = PlaySoundboardSoundSettings;
+
+	async fn will_appear(
+		&self,
+		instance: &Instance,
+		settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		set_button_title(instance, settings.sound.as_ref()).await;
+		Ok(())
+	}
+
+	async fn did_receive_settings(
+		&self,
+		instance: &Instance,
+		settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		set_button_title(instance, settings.sound.as_ref()).await;
+		Ok(())
+	}
 
 	async fn property_inspector_did_appear(
 		&self,
