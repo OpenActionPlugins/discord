@@ -127,6 +127,16 @@
 			"PropertyInspectorPath": "pi/selectchannel.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/voicechannel_0" }, { "Image": "actions/voicechannel_1" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.notification",
+			"Name": "Notification",
+			"Icon": "actions/notifications",
+			"Tooltip": "Show notifications",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/notification.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/notifications" }]
 		}
 	]
 }

@@ -1,8 +1,10 @@
 use crate::client::discord_client;
 
-use std::sync::OnceLock;
+use std::{collections::VecDeque, sync::OnceLock};
 
-use discord_ipc_rust::models::{send::commands::SentCommand, shared::Guild};
+use discord_ipc_rust::models::{
+	receive::events::NotificationCreateData, send::commands::SentCommand, shared::Guild,
+};
 use openaction::{Instance, OpenActionResult};
 use serde::Serialize;
 use tokio::sync::RwLock;
@@ -13,9 +15,20 @@ pub struct CachedGuild {
 	name: String,
 }
 
+#[derive(Serialize, Clone)]
+pub struct CachedNotification {
+	pub channel_id: String,
+	pub icon_url: String,
+}
+
 pub fn guild_cache() -> &'static RwLock<Vec<CachedGuild>> {
 	static CACHE: OnceLock<RwLock<Vec<CachedGuild>>> = OnceLock::new();
 	CACHE.get_or_init(|| RwLock::new(Vec::new()))
+}
+
+pub fn notification_cache() -> &'static RwLock<VecDeque<CachedNotification>> {
+	static CACHE: OnceLock<RwLock<VecDeque<CachedNotification>>> = OnceLock::new();
+	CACHE.get_or_init(|| RwLock::new(VecDeque::new()))
 }
 
 pub async fn update_guild_cache(guilds: &[Guild]) {
@@ -40,4 +53,15 @@ pub async fn refresh_guild_cache(instance: &Instance) -> OpenActionResult<()> {
 	}
 
 	Ok(())
+}
+
+pub async fn add_notification_to_cache(notification: NotificationCreateData) {
+	let mut cache_lock = notification_cache().write().await;
+	cache_lock.push_back(CachedNotification {
+		channel_id: notification.channel_id,
+		icon_url: notification.icon_url,
+	});
+	while cache_lock.len() > 10 {
+		cache_lock.pop_front();
+	}
 }

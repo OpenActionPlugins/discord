@@ -117,6 +117,12 @@ async fn setup_discord_client(
 	.await
 	.map_err(|e| format!("Failed to subscribe to voice channel select events: {}", e))?;
 
+	rpc.emit_command(&SentCommand::Subscribe(
+		SubscribeableEvent::NotificationCreate,
+	))
+	.await
+	.map_err(|e| format!("Failed to subscribe to notification create events: {}", e))?;
+
 	// Request current voice settings so buttons reflect the initial state immediately.
 	rpc.emit_command(&SentCommand::GetVoiceSettings)
 		.await
@@ -226,6 +232,7 @@ async fn create_discord_client(settings: &DiscordSettings) -> Result<DiscordIpcC
 				"rpc.video.write".to_owned(),
 				"rpc.screenshare.read".to_owned(),
 				"rpc.screenshare.write".to_owned(),
+				"rpc.notifications.read".to_owned(),
 				"identify".to_owned(),
 			],
 			rpc_token: None,
