@@ -1,8 +1,8 @@
 use crate::CURRENT_SETTINGS;
 use crate::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper};
 use crate::client::{
-	AUDIO_INPUT_TYPE, AUDIO_OUTPUT_TYPE, CURRENT_VOICE_CHANNEL, CURRENT_VOICE_MODE,
-	schedule_reconnect,
+	AUDIO_INPUT_TYPE, AUDIO_OUTPUT_TYPE, CURRENT_USER_ID, CURRENT_VOICE_CHANNEL,
+	CURRENT_VOICE_MODE, USER_VOICE_SETTINGS_MAP, schedule_reconnect,
 };
 
 use discord_ipc_rust::models::receive::{
@@ -30,6 +30,37 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 				}
 			}
 			ReturnedEvent::VoiceSettingsUpdate(voice) => apply_voice_state(voice).await,
+			ReturnedEvent::VoiceStateCreate(state) | ReturnedEvent::VoiceStateUpdate(state) => {
+				let Some(user) = &state.user else {
+					return;
+				};
+
+				let current_user_id = CURRENT_USER_ID.read().await;
+
+				if current_user_id.as_ref() != Some(&user.id) {
+					USER_VOICE_SETTINGS_MAP
+						.write()
+						.await
+						.insert(user.id.clone(), state.into());
+
+					for instance in
+						visible_instances(crate::actions::UserVolumeControlAction::UUID).await
+					{
+						let _ = instance.get_settings().await;
+					}
+				}
+			}
+			ReturnedEvent::VoiceStateDelete(state) => {
+				if let Some(user) = &state.user {
+					USER_VOICE_SETTINGS_MAP.write().await.remove(&user.id);
+
+					for instance in
+						visible_instances(crate::actions::UserVolumeControlAction::UUID).await
+					{
+						let _ = instance.get_settings().await;
+					}
+				}
+			}
 			ReturnedEvent::VideoStateUpdate(state) => {
 				update_action_state(crate::actions::ToggleVideoAction::UUID, state.active).await;
 			}
@@ -62,13 +93,30 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 		ReceivedItem::SocketClosed => {
 			log::warn!("Discord closed; attempting to reconnect");
 			crate::cache::guild_cache().write().await.clear();
+			USER_VOICE_SETTINGS_MAP.write().await.clear();
 			schedule_reconnect();
 		}
 	}
 }
 
 async fn handle_select_voice_channel(channel_id: Option<String>) {
-	*CURRENT_VOICE_CHANNEL.write().await = channel_id;
+	let old_channel = CURRENT_VOICE_CHANNEL.read().await.clone();
+
+	if old_channel == channel_id {
+		return;
+	}
+
+	if let Some(old_channel) = old_channel {
+		crate::client::update_voice_state_subscription(old_channel, false).await;
+		USER_VOICE_SETTINGS_MAP.write().await.clear();
+	}
+
+	*CURRENT_VOICE_CHANNEL.write().await = channel_id.clone();
+
+	if let Some(new_channel) = channel_id {
+		crate::client::update_voice_state_subscription(new_channel, true).await;
+	}
+
 	for instance in visible_instances(crate::actions::VoiceChannelAction::UUID).await {
 		let _ = instance.get_settings().await;
 	}

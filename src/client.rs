@@ -1,8 +1,9 @@
-use crate::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper};
+use crate::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper, UserVoiceSettings};
 use crate::oauth::exchange_code_for_token;
 use crate::rpc_events::handle_rpc_event;
 use crate::{CURRENT_SETTINGS, DiscordSettings};
 
+use std::collections::HashMap;
 use std::sync::{
 	LazyLock,
 	atomic::{AtomicBool, Ordering},
@@ -21,6 +22,9 @@ use tokio::time::{Duration, sleep};
 static DISCORD_CLIENT: LazyLock<Mutex<Option<DiscordIpcClient>>> =
 	LazyLock::new(|| Mutex::new(None));
 
+// Shared place to store the user ID of the authenticated user.
+pub static CURRENT_USER_ID: LazyLock<RwLock<Option<String>>> = LazyLock::new(|| RwLock::new(None));
+
 // Flag to avoid multiple concurrent reconnect attempts.
 static RECONNECTING: AtomicBool = AtomicBool::new(false);
 
@@ -37,6 +41,9 @@ pub static CURRENT_VOICE_CHANNEL: LazyLock<RwLock<Option<String>>> =
 // Last-known voice mode from Discord, updated via RPC events.
 pub static CURRENT_VOICE_MODE: LazyLock<RwLock<Option<VoiceSettingsMode>>> =
 	LazyLock::new(|| RwLock::new(None));
+
+pub static USER_VOICE_SETTINGS_MAP: LazyLock<RwLock<HashMap<String, UserVoiceSettings>>> =
+	LazyLock::new(|| RwLock::new(HashMap::new()));
 
 // Locks the Discord client and returns the guard, or shows an alert and returns None if not initialized.
 pub async fn get_discord_client(
@@ -103,6 +110,44 @@ pub(crate) fn schedule_reconnect() {
 			sleep(Duration::from_secs(5)).await;
 		}
 	});
+}
+
+pub async fn update_voice_state_subscription(channel_id: String, subscribe: bool) {
+	let mut client_lock = DISCORD_CLIENT.lock().await;
+	let Some(client) = client_lock.as_mut() else {
+		log::error!("Discord client not initialized");
+		return;
+	};
+
+	let events = [
+		SubscribeableEvent::VoiceStateCreate {
+			channel_id: channel_id.clone(),
+		},
+		SubscribeableEvent::VoiceStateUpdate {
+			channel_id: channel_id.clone(),
+		},
+		SubscribeableEvent::VoiceStateDelete { channel_id },
+	];
+
+	for event in events {
+		let command = if subscribe {
+			SentCommand::Subscribe(event)
+		} else {
+			SentCommand::Unsubscribe(event)
+		};
+
+		if let Err(e) = client.emit_command(&command).await {
+			log::error!(
+				"Failed to {} voice state events: {}",
+				if subscribe {
+					"subscribe to"
+				} else {
+					"unsubscribe from"
+				},
+				e
+			);
+		}
+	}
 }
 
 // Sets up an authenticated Discord IPC client with event subscriptions and handlers.
@@ -178,6 +223,8 @@ async fn create_discord_client(settings: &DiscordSettings) -> Result<DiscordIpcC
 		.await
 		.map_err(|e| format!("Failed to connect to Discord: {}", e))?;
 	log::info!("Connected to Discord as {}", user.username);
+
+	*CURRENT_USER_ID.write().await = Some(user.id);
 
 	if !settings.access_token.is_empty() {
 		setup_discord_client(&mut rpc, settings.access_token.clone()).await?;

@@ -1,4 +1,5 @@
 use discord_ipc_rust::models::{
+	receive::events::VoiceStateData,
 	send::commands::SetVoiceSettingsArgs,
 	shared::voice::{VoiceAvailableDevice, VoiceSettingsInput, VoiceSettingsOutput},
 };
@@ -73,6 +74,31 @@ impl From<AudioDeviceWrapper> for SetVoiceSettingsArgs {
 				}),
 				..Default::default()
 			},
+		}
+	}
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct UserVoiceSettings {
+	pub nick: String,
+	pub volume: f32,
+	pub mute: bool,
+	pub self_mute: bool,
+	pub self_deaf: bool,
+	pub server_mute: bool,
+	pub server_deaf: bool,
+}
+
+impl From<VoiceStateData> for UserVoiceSettings {
+	fn from(value: VoiceStateData) -> Self {
+		Self {
+			nick: value.nick,
+			volume: value.volume,
+			mute: value.mute,
+			self_mute: value.state.self_mute,
+			self_deaf: value.state.self_deaf,
+			server_mute: value.state.mute,
+			server_deaf: value.state.deaf,
 		}
 	}
 }

@@ -1,7 +1,9 @@
 pub mod set_audio_device;
+mod user_volume_control;
 mod volume_control;
 
 pub use set_audio_device::SetAudioDeviceAction;
+pub use user_volume_control::UserVolumeControlAction;
 pub use volume_control::VolumeControlAction;
 
 use crate::client::{CURRENT_VOICE_MODE, get_discord_client};
