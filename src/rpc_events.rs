@@ -122,8 +122,6 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 }
 
 async fn handle_notification(notification: NotificationCreateData) {
-	log::info!("Received notification: title={:?}", notification.title);
-
 	crate::cache::add_notification_to_cache(notification).await;
 
 	for instance in visible_instances(crate::actions::NotificationAction::UUID).await {

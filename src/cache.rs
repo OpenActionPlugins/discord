@@ -61,7 +61,4 @@ pub async fn add_notification_to_cache(notification: NotificationCreateData) {
 		channel_id: notification.channel_id,
 		icon_url: notification.icon_url,
 	});
-	while cache_lock.len() > 10 {
-		cache_lock.pop_front();
-	}
 }

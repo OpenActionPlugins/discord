@@ -8,7 +8,12 @@ async fn update_title(instance: &Instance) -> OpenActionResult<()> {
 	let cache = notification_cache().read().await;
 	let title = format!("{}", cache.len());
 
-	instance.set_title(Some(title), None).await
+	if let Err(e) = instance.set_title(Some(title), None).await {
+		log::error!("Failed to update notification action title: {}", e);
+		instance.show_alert().await?;
+	}
+
+	Ok(())
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -54,25 +59,29 @@ impl Action for NotificationAction {
 		instance: &Instance,
 		settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		let mut cache = notification_cache().write().await;
+		let notification = {
+			let mut cache = notification_cache().write().await;
 
-		if matches!(settings.action_type, NotificationActionType::Clear) {
-			cache.clear();
-			return Ok(());
-		}
-
-		let notification = match settings.action_type {
-			NotificationActionType::Clear => unreachable!(),
-			NotificationActionType::Show | NotificationActionType::CycleRecentFirst => {
-				cache.pop_front()
+			if matches!(settings.action_type, NotificationActionType::Clear) {
+				cache.clear();
+				return Ok(());
 			}
-			NotificationActionType::CycleRecentLast => cache.pop_back(),
+
+			match settings.action_type {
+				NotificationActionType::Clear => unreachable!(),
+				NotificationActionType::Show | NotificationActionType::CycleRecentFirst => {
+					cache.pop_front()
+				}
+				NotificationActionType::CycleRecentLast => cache.pop_back(),
+			}
 		};
 
 		let Some(notification) = notification else {
 			instance.show_alert().await?;
 			return Ok(());
 		};
+
+		update_title(instance).await?;
 
 		select_text_channel(
 			instance,
