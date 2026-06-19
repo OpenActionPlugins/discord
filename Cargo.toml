@@ -10,4 +10,8 @@ serde_json = "1.0"
 tokio = { version = "1.48", features = ["rt-multi-thread", "macros"] }
 log = "0.4"
 simplelog = "0.12"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "default-tls"] }
+
+[profile.release]
+lto = "thin"
+strip = true
