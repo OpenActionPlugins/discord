@@ -1,4 +1,5 @@
 mod actions;
+mod audio_device_utils;
 mod cache;
 mod client;
 mod oauth;
@@ -7,7 +8,7 @@ mod rpc_events;
 use actions::*;
 use client::schedule_reconnect;
 
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
 use openaction::{
 	OpenActionResult, async_trait, get_global_settings, global_events, register_action, run,
@@ -29,10 +30,8 @@ pub struct DiscordSettings {
 }
 
 // Global storage for the last-applied settings so every module can read/write them.
-pub fn current_settings() -> &'static RwLock<DiscordSettings> {
-	static SETTINGS: OnceLock<RwLock<DiscordSettings>> = OnceLock::new();
-	SETTINGS.get_or_init(|| RwLock::new(DiscordSettings::default()))
-}
+pub static CURRENT_SETTINGS: LazyLock<RwLock<DiscordSettings>> =
+	LazyLock::new(|| RwLock::new(DiscordSettings::default()));
 
 // Handles global setting updates pushed from the Stream Deck host.
 pub struct GlobalEventHandler;
@@ -50,7 +49,7 @@ impl global_events::GlobalEventHandler for GlobalEventHandler {
 			serde_json::from_value(event.payload.settings).unwrap_or_default();
 
 		// Only react when the stored settings actually changed so we can avoid reconnect churn.
-		let current = current_settings().read().await;
+		let current = CURRENT_SETTINGS.read().await;
 		let settings_changed = current.client_id != settings.client_id
 			|| current.client_secret != settings.client_secret
 			|| current.access_token != settings.access_token
@@ -63,7 +62,7 @@ impl global_events::GlobalEventHandler for GlobalEventHandler {
 			log::info!("Global settings changed, reinitializing Discord client");
 
 			// Persist the new configuration before attempting to reconnect.
-			*current_settings().write().await = settings;
+			*CURRENT_SETTINGS.write().await = settings;
 
 			schedule_reconnect();
 		}

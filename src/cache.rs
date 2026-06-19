@@ -1,4 +1,4 @@
-use crate::client::discord_client;
+use crate::client::get_discord_client;
 
 use std::sync::OnceLock;
 
@@ -31,8 +31,10 @@ pub async fn update_guild_cache(guilds: &[Guild]) {
 }
 
 pub async fn refresh_guild_cache(instance: &Instance) -> OpenActionResult<()> {
-	let mut client_lock = discord_client().write().await;
-	if let Some(client) = client_lock.as_mut()
+	let Some(mut guard) = get_discord_client(instance).await? else {
+		return Ok(());
+	};
+	if let Some(client) = guard.as_mut()
 		&& let Err(e) = client.emit_command(&SentCommand::GetGuilds).await
 	{
 		log::error!("Failed to request guilds: {}", e);

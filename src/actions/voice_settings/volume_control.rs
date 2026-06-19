@@ -1,5 +1,8 @@
-use super::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper, get_audio_device_settings};
 use super::update_voice_setting;
+use crate::{
+	audio_device_utils::{AudioDeviceType, AudioDeviceWrapper},
+	client::get_audio_device_settings,
+};
 
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 use serde::{Deserialize, Serialize};

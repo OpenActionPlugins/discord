@@ -1,11 +1,8 @@
-use std::sync::OnceLock;
-
 use discord_ipc_rust::models::{
 	send::commands::SetVoiceSettingsArgs,
 	shared::voice::{VoiceAvailableDevice, VoiceSettingsInput, VoiceSettingsOutput},
 };
 use serde::{Deserialize, Serialize};
-use tokio::sync::RwLock;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum AudioDeviceType {
@@ -78,26 +75,4 @@ impl From<AudioDeviceWrapper> for SetVoiceSettingsArgs {
 			},
 		}
 	}
-}
-
-pub fn audio_input_settings() -> &'static RwLock<Option<AudioDeviceWrapper>> {
-	static SETTINGS: OnceLock<RwLock<Option<AudioDeviceWrapper>>> = OnceLock::new();
-	SETTINGS.get_or_init(|| RwLock::new(None))
-}
-
-pub fn audio_output_settings() -> &'static RwLock<Option<AudioDeviceWrapper>> {
-	static SETTINGS: OnceLock<RwLock<Option<AudioDeviceWrapper>>> = OnceLock::new();
-	SETTINGS.get_or_init(|| RwLock::new(None))
-}
-
-pub async fn get_audio_device_settings(
-	device_type: &AudioDeviceType,
-) -> Option<AudioDeviceWrapper> {
-	match device_type {
-		AudioDeviceType::Input => audio_input_settings(),
-		AudioDeviceType::Output => audio_output_settings(),
-	}
-	.read()
-	.await
-	.clone()
 }

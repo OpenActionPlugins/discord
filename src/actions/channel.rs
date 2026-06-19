@@ -1,5 +1,5 @@
 use crate::cache::{CachedGuild, guild_cache, refresh_guild_cache};
-use crate::client::{current_voice_channel, discord_client};
+use crate::client::{CURRENT_VOICE_CHANNEL, get_discord_client};
 
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
@@ -140,8 +140,10 @@ impl PiRequest {
 					.await
 					.insert(instance.instance_id.clone(), kind);
 
-				let mut client_lock = discord_client().write().await;
-				if let Some(client) = client_lock.as_mut()
+				let Some(mut guard) = get_discord_client(instance).await? else {
+					return Ok(());
+				};
+				if let Some(client) = guard.as_mut()
 					&& let Err(e) = client
 						.emit_command(&SentCommand::GetChannels(GetChannelsArgs { guild_id }))
 						.await
@@ -190,12 +192,10 @@ impl Action for TextChannelAction {
 			return Ok(());
 		}
 
-		let mut client_lock = discord_client().write().await;
-		let Some(client) = client_lock.as_mut() else {
-			log::error!("Discord client not initialized");
-			instance.show_alert().await?;
+		let Some(mut guard) = get_discord_client(instance).await? else {
 			return Ok(());
 		};
+		let client = guard.as_mut().unwrap();
 
 		if let Err(e) = client
 			.emit_command(&SentCommand::SelectTextChannel(SelectTextChannelArgs {
@@ -216,7 +216,7 @@ async fn sync_voice_channel_state(
 	instance: &Instance,
 	settings: &ChannelActionSettings,
 ) -> OpenActionResult<()> {
-	let is_active = current_voice_channel()
+	let is_active = CURRENT_VOICE_CHANNEL
 		.read()
 		.await
 		.as_deref()
@@ -270,14 +270,12 @@ impl Action for VoiceChannelAction {
 			return Ok(());
 		}
 
-		let mut client_lock = discord_client().write().await;
-		let Some(client) = client_lock.as_mut() else {
-			log::error!("Discord client not initialized");
-			instance.show_alert().await?;
+		let Some(mut guard) = get_discord_client(instance).await? else {
 			return Ok(());
 		};
+		let client = guard.as_mut().unwrap();
 
-		let current = current_voice_channel().read().await;
+		let current = CURRENT_VOICE_CHANNEL.read().await;
 		let target = if current.as_deref() != Some(settings.channel_id.as_str()) {
 			Some(settings.channel_id.clone())
 		} else {

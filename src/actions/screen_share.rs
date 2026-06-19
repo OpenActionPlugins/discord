@@ -1,4 +1,4 @@
-use crate::client::discord_client;
+use crate::client::get_discord_client;
 
 use std::collections::HashMap;
 
@@ -17,12 +17,10 @@ impl Action for ToggleScreenshareAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		let mut client_lock = discord_client().write().await;
-		let Some(client) = client_lock.as_mut() else {
-			log::error!("Discord client not initialized");
-			instance.show_alert().await?;
+		let Some(mut guard) = get_discord_client(instance).await? else {
 			return Ok(());
 		};
+		let client = guard.as_mut().unwrap();
 
 		if let Err(e) = client
 			.emit_command(&SentCommand::ToggleScreenshare(ToggleScreenshareArgs {
