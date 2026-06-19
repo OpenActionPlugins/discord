@@ -1,4 +1,4 @@
-use crate::cache::{CachedGuild, guild_cache, refresh_guild_cache};
+use crate::cache::{CachedGuild, GUILD_CACHE, refresh_guild_cache};
 use crate::client::{CURRENT_VOICE_CHANNEL, get_discord_client};
 
 use std::collections::HashMap;
@@ -59,7 +59,7 @@ pub async fn send_guilds_to_pi(instance: Option<&Instance>) {
 		guilds: Vec<CachedGuild>,
 	}
 
-	let cache = guild_cache().read().await;
+	let cache = GUILD_CACHE.read().await;
 	let payload = Payload {
 		guilds: cache.clone(),
 	};
@@ -77,7 +77,7 @@ pub async fn send_guilds_to_pi(instance: Option<&Instance>) {
 }
 
 async fn send_cached_guilds_to_pi(instance: &Instance) -> OpenActionResult<()> {
-	if !guild_cache().read().await.is_empty() {
+	if !GUILD_CACHE.read().await.is_empty() {
 		send_guilds_to_pi(Some(instance)).await;
 		Ok(())
 	} else {

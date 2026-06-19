@@ -92,7 +92,7 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 		},
 		ReceivedItem::SocketClosed => {
 			log::warn!("Discord closed; attempting to reconnect");
-			crate::cache::guild_cache().write().await.clear();
+			crate::cache::GUILD_CACHE.write().await.clear();
 			USER_VOICE_SETTINGS_MAP.write().await.clear();
 			schedule_reconnect();
 		}

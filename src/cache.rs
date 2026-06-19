@@ -1,6 +1,6 @@
 use crate::client::get_discord_client;
 
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
 use discord_ipc_rust::models::{send::commands::SentCommand, shared::Guild};
 use openaction::{Instance, OpenActionResult};
@@ -13,10 +13,8 @@ pub struct CachedGuild {
 	name: String,
 }
 
-pub fn guild_cache() -> &'static RwLock<Vec<CachedGuild>> {
-	static CACHE: OnceLock<RwLock<Vec<CachedGuild>>> = OnceLock::new();
-	CACHE.get_or_init(|| RwLock::new(Vec::new()))
-}
+pub static GUILD_CACHE: LazyLock<RwLock<Vec<CachedGuild>>> =
+	LazyLock::new(|| RwLock::new(Vec::new()));
 
 pub async fn update_guild_cache(guilds: &[Guild]) {
 	let mut cached: Vec<CachedGuild> = guilds
@@ -27,7 +25,7 @@ pub async fn update_guild_cache(guilds: &[Guild]) {
 		})
 		.collect();
 	cached.sort_by_key(|x| x.name.to_lowercase());
-	*guild_cache().write().await = cached;
+	*GUILD_CACHE.write().await = cached;
 }
 
 pub async fn refresh_guild_cache(instance: &Instance) -> OpenActionResult<()> {
