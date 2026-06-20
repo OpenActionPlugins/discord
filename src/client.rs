@@ -28,10 +28,10 @@ pub static CURRENT_USER_ID: LazyLock<RwLock<Option<String>>> = LazyLock::new(|| 
 // Flag to avoid multiple concurrent reconnect attempts.
 static RECONNECTING: AtomicBool = AtomicBool::new(false);
 
-pub(super) static AUDIO_INPUT_TYPE: LazyLock<RwLock<Option<AudioDeviceWrapper>>> =
+pub static AUDIO_INPUT_TYPE: LazyLock<RwLock<Option<AudioDeviceWrapper>>> =
 	LazyLock::new(|| RwLock::new(None));
 
-pub(super) static AUDIO_OUTPUT_TYPE: LazyLock<RwLock<Option<AudioDeviceWrapper>>> =
+pub static AUDIO_OUTPUT_TYPE: LazyLock<RwLock<Option<AudioDeviceWrapper>>> =
 	LazyLock::new(|| RwLock::new(None));
 
 // Shared place to store the currently selected voice channel ID.
@@ -59,15 +59,27 @@ pub async fn get_discord_client(
 }
 
 pub async fn get_audio_device_settings(
+	instance: &Instance,
 	device_type: &AudioDeviceType,
-) -> Option<AudioDeviceWrapper> {
-	match device_type {
+) -> OpenActionResult<Option<AudioDeviceWrapper>> {
+	let device = match device_type {
 		AudioDeviceType::Input => &AUDIO_INPUT_TYPE,
 		AudioDeviceType::Output => &AUDIO_OUTPUT_TYPE,
 	}
 	.read()
 	.await
-	.clone()
+	.clone();
+
+	let Some(device) = device else {
+		log::error!(
+			"Failed to obtain voice settings for {:?} device",
+			device_type
+		);
+		instance.show_alert().await?;
+		return Ok(None);
+	};
+
+	Ok(Some(device))
 }
 
 // Store the latest error message in the global settings so the UI can surface it.
