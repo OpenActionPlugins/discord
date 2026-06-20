@@ -21,16 +21,17 @@ async fn update_voice_setting(
 	args: SetVoiceSettingsArgs,
 	next_state: usize,
 ) -> OpenActionResult<()> {
-	let Some(mut guard) = get_discord_client(instance).await? else {
-		return Ok(());
+	let result = {
+		let Some(mut client) = get_discord_client(instance).await? else {
+			return Ok(());
+		};
+		client
+			.emit_command(&SentCommand::SetVoiceSettings(args))
+			.await
 	};
-	let client = guard.as_mut().unwrap();
 
 	// Send the RPC and update the Stream Deck feedback depending on the result.
-	match client
-		.emit_command(&SentCommand::SetVoiceSettings(args))
-		.await
-	{
+	match result {
 		Ok(_) => {
 			// Reflect the new voice state on the button.
 			instance.set_state(next_state as u16).await?;

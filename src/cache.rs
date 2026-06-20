@@ -29,12 +29,15 @@ pub async fn update_guild_cache(guilds: &[Guild]) {
 }
 
 pub async fn refresh_guild_cache(instance: &Instance) -> OpenActionResult<()> {
-	let Some(mut guard) = get_discord_client(instance).await? else {
-		return Ok(());
+	let result = {
+		let Some(mut client) = get_discord_client(instance).await? else {
+			return Ok(());
+		};
+
+		client.emit_command(&SentCommand::GetGuilds).await
 	};
-	if let Some(client) = guard.as_mut()
-		&& let Err(e) = client.emit_command(&SentCommand::GetGuilds).await
-	{
+
+	if let Err(e) = result {
 		log::error!("Failed to request guilds: {}", e);
 		instance.show_alert().await?;
 	}

@@ -15,7 +15,7 @@ use discord_ipc_rust::models::send::commands::{AuthorizeArgs, SentCommand};
 use discord_ipc_rust::models::send::events::SubscribeableEvent;
 use discord_ipc_rust::models::shared::voice::VoiceSettingsMode;
 use openaction::{Instance, OpenActionResult, set_global_settings};
-use tokio::sync::{Mutex, MutexGuard, RwLock};
+use tokio::sync::{MappedMutexGuard, Mutex, MutexGuard, RwLock};
 use tokio::time::{Duration, sleep};
 
 // Shared place to store the active Discord IPC connection for the lifetime of the plugin.
@@ -48,14 +48,14 @@ pub static USER_VOICE_SETTINGS_MAP: LazyLock<RwLock<HashMap<String, UserVoiceSet
 // Locks the Discord client and returns the guard, or shows an alert and returns None if not initialized.
 pub async fn get_discord_client(
 	instance: &Instance,
-) -> OpenActionResult<Option<MutexGuard<'static, Option<DiscordIpcClient>>>> {
+) -> OpenActionResult<Option<MappedMutexGuard<'static, DiscordIpcClient>>> {
 	let guard = DISCORD_CLIENT.lock().await;
 	if guard.is_none() {
 		log::error!("Discord client not initialized");
 		instance.show_alert().await?;
 		return Ok(None);
 	}
-	Ok(Some(guard))
+	Ok(Some(MutexGuard::map(guard, |opt| opt.as_mut().unwrap())))
 }
 
 pub async fn get_audio_device_settings(

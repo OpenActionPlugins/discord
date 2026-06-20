@@ -140,14 +140,17 @@ impl PiRequest {
 					.await
 					.insert(instance.instance_id.clone(), kind);
 
-				let Some(mut guard) = get_discord_client(instance).await? else {
-					return Ok(());
-				};
-				if let Some(client) = guard.as_mut()
-					&& let Err(e) = client
+				let result = {
+					let Some(mut client) = get_discord_client(instance).await? else {
+						return Ok(());
+					};
+
+					client
 						.emit_command(&SentCommand::GetChannels(GetChannelsArgs { guild_id }))
 						.await
-				{
+				};
+
+				if let Err(e) = result {
 					log::error!("Failed to request channels: {}", e);
 				}
 			}
@@ -192,18 +195,20 @@ impl Action for TextChannelAction {
 			return Ok(());
 		}
 
-		let Some(mut guard) = get_discord_client(instance).await? else {
-			return Ok(());
-		};
-		let client = guard.as_mut().unwrap();
+		let result = {
+			let Some(mut client) = get_discord_client(instance).await? else {
+				return Ok(());
+			};
 
-		if let Err(e) = client
-			.emit_command(&SentCommand::SelectTextChannel(SelectTextChannelArgs {
-				channel_id: Some(settings.channel_id.clone()),
-				timeout: None,
-			}))
-			.await
-		{
+			client
+				.emit_command(&SentCommand::SelectTextChannel(SelectTextChannelArgs {
+					channel_id: Some(settings.channel_id.clone()),
+					timeout: None,
+				}))
+				.await
+		};
+
+		if let Err(e) = result {
 			log::error!("Failed to select text channel: {}", e);
 			instance.show_alert().await?;
 		}
@@ -270,11 +275,6 @@ impl Action for VoiceChannelAction {
 			return Ok(());
 		}
 
-		let Some(mut guard) = get_discord_client(instance).await? else {
-			return Ok(());
-		};
-		let client = guard.as_mut().unwrap();
-
 		let current = CURRENT_VOICE_CHANNEL.read().await;
 		let target = if current.as_deref() != Some(settings.channel_id.as_str()) {
 			Some(settings.channel_id.clone())
@@ -283,15 +283,22 @@ impl Action for VoiceChannelAction {
 		};
 		drop(current);
 
-		if let Err(e) = client
-			.emit_command(&SentCommand::SelectVoiceChannel(SelectVoiceChannelArgs {
-				channel_id: target,
-				force: Some(true),
-				navigate: Some(false),
-				timeout: None,
-			}))
-			.await
-		{
+		let result = {
+			let Some(mut client) = get_discord_client(instance).await? else {
+				return Ok(());
+			};
+
+			client
+				.emit_command(&SentCommand::SelectVoiceChannel(SelectVoiceChannelArgs {
+					channel_id: target,
+					force: Some(true),
+					navigate: Some(false),
+					timeout: None,
+				}))
+				.await
+		};
+
+		if let Err(e) = result {
 			log::error!("Failed to select or deselect voice channel: {}", e);
 			instance.show_alert().await?;
 		}

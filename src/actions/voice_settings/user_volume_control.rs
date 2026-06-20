@@ -38,15 +38,17 @@ async fn update_user_voice_settings(
 	instance: &Instance,
 	args: SetUserVoiceSettingsArgs,
 ) -> OpenActionResult<()> {
-	let Some(mut guard) = get_discord_client(instance).await? else {
-		return Ok(());
-	};
-	let client = guard.as_mut().unwrap();
+	let reuslt = {
+		let Some(mut client) = get_discord_client(instance).await? else {
+			return Ok(());
+		};
 
-	if let Err(e) = client
-		.emit_command(&SentCommand::SetUserVoiceSettings(args))
-		.await
-	{
+		client
+			.emit_command(&SentCommand::SetUserVoiceSettings(args))
+			.await
+	};
+
+	if let Err(e) = reuslt {
 		log::error!("Failed to update user voice settings: {}", e);
 		instance.show_alert().await?;
 	}

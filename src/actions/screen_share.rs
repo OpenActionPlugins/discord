@@ -17,17 +17,19 @@ impl Action for ToggleScreenshareAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		let Some(mut guard) = get_discord_client(instance).await? else {
-			return Ok(());
-		};
-		let client = guard.as_mut().unwrap();
+		let result = {
+			let Some(mut client) = get_discord_client(instance).await? else {
+				return Ok(());
+			};
 
-		if let Err(e) = client
-			.emit_command(&SentCommand::ToggleScreenshare(ToggleScreenshareArgs {
-				pid: None,
-			}))
-			.await
-		{
+			client
+				.emit_command(&SentCommand::ToggleScreenshare(ToggleScreenshareArgs {
+					pid: None,
+				}))
+				.await
+		};
+
+		if let Err(e) = result {
 			log::error!("Failed to toggle screen share: {}", e);
 			instance.show_alert().await?;
 		}
