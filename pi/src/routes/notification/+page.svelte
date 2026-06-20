@@ -21,10 +21,10 @@
 				onchange={updateActionType}
 				class="w-full"
 			>
-				<option value="Show">Show</option>
+				<option value="DoNothing">Do Nothing</option>
 				<option value="Clear">Clear</option>
-				<option value="CycleRecentFirst">Cycle, recent first</option>
-				<option value="CycleRecentLast">Cycle, recent last</option>
+				<option value="CycleRecentFirst">Cycle, Recent First</option>
+				<option value="CycleOldestFirst">Cycle, Oldest First</option>
 			</select>
 		</div>
 	</div>

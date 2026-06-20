@@ -19,10 +19,10 @@ async fn update_title(instance: &Instance) -> OpenActionResult<()> {
 #[derive(Serialize, Deserialize, Default)]
 pub enum NotificationActionType {
 	#[default]
-	Show,
+	DoNothing,
 	Clear,
 	CycleRecentFirst,
-	CycleRecentLast,
+	CycleOldestFirst,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -59,20 +59,18 @@ impl Action for NotificationAction {
 		instance: &Instance,
 		settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		let notification = {
-			let mut cache = notification_cache().write().await;
-
-			if matches!(settings.action_type, NotificationActionType::Clear) {
-				cache.clear();
+		let notification = match settings.action_type {
+			NotificationActionType::DoNothing => return Ok(()),
+			NotificationActionType::Clear => {
+				notification_cache().write().await.clear();
+				update_title(instance).await?;
 				return Ok(());
 			}
-
-			match settings.action_type {
-				NotificationActionType::Clear => unreachable!(),
-				NotificationActionType::Show | NotificationActionType::CycleRecentFirst => {
-					cache.pop_front()
-				}
-				NotificationActionType::CycleRecentLast => cache.pop_back(),
+			NotificationActionType::CycleRecentFirst => {
+				notification_cache().write().await.pop_back()
+			}
+			NotificationActionType::CycleOldestFirst => {
+				notification_cache().write().await.pop_front()
 			}
 		};
 
