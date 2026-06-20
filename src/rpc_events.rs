@@ -4,6 +4,7 @@ use crate::actions::audio_device_utils::{
 use crate::client::{current_user_id, current_voice_channel, schedule_reconnect};
 use crate::current_settings;
 
+use discord_ipc_rust::models::receive::events::NotificationCreateData;
 use discord_ipc_rust::models::receive::{
 	ReceivedItem, commands::ReturnedCommand, events::ReturnedEvent,
 };
@@ -70,6 +71,9 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 			ReturnedEvent::VoiceChannelSelect(data) => {
 				handle_select_voice_channel(data.channel_id).await;
 			}
+			ReturnedEvent::NotificationCreate(notification) => {
+				handle_notification(notification).await;
+			}
 			_ => {}
 		},
 		ReceivedItem::Command(command) => match *command {
@@ -122,6 +126,13 @@ async fn handle_select_voice_channel(channel_id: Option<String>) {
 
 	for instance in visible_instances(crate::actions::VoiceChannelAction::UUID).await {
 		let _ = instance.get_settings().await;
+	}
+}
+
+async fn handle_notification(notification: NotificationCreateData) {
+	crate::cache::add_notification_to_cache(notification).await;
+	for instance in visible_instances(crate::actions::NotificationsAction::UUID).await {
+		let _ = crate::actions::notifications::update_title(&instance).await;
 	}
 }
 

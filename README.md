@@ -20,3 +20,4 @@ An OpenAction ([OpenDeck](https://github.com/nekename/OpenDeck) / [Tacto](https:
 - Text Channel
 - Voice Channel
 - Soundboard
+- Notifications

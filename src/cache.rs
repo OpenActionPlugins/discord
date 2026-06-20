@@ -1,8 +1,10 @@
 use crate::client::discord_client;
 
+use std::collections::VecDeque;
 use std::sync::OnceLock;
 
 use discord_ipc_rust::models::{
+	receive::events::NotificationCreateData,
 	send::commands::{PlaySoundboardSoundArgs, SentCommand},
 	shared::{Guild, voice::SoundboardSound},
 };
@@ -42,6 +44,16 @@ pub fn guild_cache() -> &'static RwLock<Vec<CachedGuild>> {
 pub fn soundboard_sounds_cache() -> &'static RwLock<Vec<CachedSoundboardSound>> {
 	static CACHE: OnceLock<RwLock<Vec<CachedSoundboardSound>>> = OnceLock::new();
 	CACHE.get_or_init(|| RwLock::new(Vec::new()))
+}
+
+#[derive(Serialize, Clone)]
+pub struct CachedNotification {
+	pub channel_id: String,
+}
+
+pub fn notification_cache() -> &'static RwLock<VecDeque<CachedNotification>> {
+	static CACHE: OnceLock<RwLock<VecDeque<CachedNotification>>> = OnceLock::new();
+	CACHE.get_or_init(|| RwLock::new(VecDeque::new()))
 }
 
 pub async fn update_guild_cache(guilds: &[Guild]) {
@@ -93,4 +105,11 @@ pub async fn refresh_soundboard_cache(instance: &Instance) -> OpenActionResult<(
 	}
 
 	Ok(())
+}
+
+pub async fn add_notification_to_cache(notification: NotificationCreateData) {
+	let mut cache_lock = notification_cache().write().await;
+	cache_lock.push_back(CachedNotification {
+		channel_id: notification.channel_id,
+	});
 }

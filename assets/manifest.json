@@ -147,6 +147,16 @@
 			"PropertyInspectorPath": "pi/soundboard.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/soundboard" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.notifications",
+			"Name": "Notifications",
+			"Icon": "actions/notifications",
+			"Tooltip": "Receive notifications and surface them in the Discord app",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/notifications.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/notifications" }]
 		}
 	]
 }
