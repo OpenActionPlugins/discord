@@ -44,9 +44,9 @@
 		}
 
 		return [...groups.values()].sort((a, b) =>
-			a.label === "Built-in"
+			a.label === "Discord sounds"
 				? -1
-				: b.label === "Built-in"
+				: b.label === "Discord sounds"
 					? 1
 					: a.label.localeCompare(b.label),
 		);
