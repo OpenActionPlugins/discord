@@ -95,9 +95,11 @@ async fn main() -> OpenActionResult<()> {
 	register_action(ToggleVideoAction).await;
 	register_action(ToggleScreenshareAction).await;
 	register_action(VolumeControlAction).await;
+	register_action(UserVolumeControlAction).await;
 	register_action(SetAudioDeviceAction).await;
 	register_action(TextChannelAction).await;
 	register_action(VoiceChannelAction).await;
+	register_action(SoundboardAction).await;
 	register_action(NotificationsAction).await;
 
 	run(std::env::args().collect()).await
