@@ -1,7 +1,5 @@
-use crate::{
-	cache::{CachedSoundboardSound, refresh_soundboard_cache, soundboard_sounds_cache},
-	client::discord_client,
-};
+use crate::cache::{CachedSoundboardSound, refresh_soundboard_cache, soundboard_sounds_cache};
+use crate::client::discord_client;
 
 use discord_ipc_rust::models::send::commands::SentCommand;
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait, visible_instances};
@@ -13,9 +11,8 @@ pub async fn send_sounds_to_pi(instance: Option<&Instance>) {
 		sounds: Vec<CachedSoundboardSound>,
 	}
 
-	let cache = soundboard_sounds_cache().read().await;
 	let payload = Payload {
-		sounds: cache.clone(),
+		sounds: soundboard_sounds_cache().read().await.clone(),
 	};
 
 	match instance {
@@ -23,7 +20,7 @@ pub async fn send_sounds_to_pi(instance: Option<&Instance>) {
 			let _ = inst.send_to_property_inspector(&payload).await;
 		}
 		None => {
-			for inst in visible_instances(PlaySoundboardSoundAction::UUID).await {
+			for inst in visible_instances(SoundboardAction::UUID).await {
 				let _ = inst.send_to_property_inspector(&payload).await;
 			}
 		}
@@ -31,7 +28,7 @@ pub async fn send_sounds_to_pi(instance: Option<&Instance>) {
 }
 
 async fn set_button_title(instance: &Instance, sound: Option<&CachedSoundboardSound>) {
-	let title = sound.map(|s| s.name.chars().take(5).collect::<String>());
+	let title = sound.map(|s| s.name.chars().take(8).collect::<String>());
 	let _ = instance.set_title(title, None).await;
 }
 
@@ -46,16 +43,16 @@ async fn send_cached_sounds_to_pi(instance: &Instance) -> OpenActionResult<()> {
 }
 
 #[derive(Serialize, Deserialize, Default)]
-pub struct PlaySoundboardSoundSettings {
+pub struct SoundboardSettings {
 	pub sound: Option<CachedSoundboardSound>,
 }
 
-pub struct PlaySoundboardSoundAction;
+pub struct SoundboardAction;
 
 #[async_trait]
-impl Action for PlaySoundboardSoundAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.playsoundboardsound";
-	type Settings = PlaySoundboardSoundSettings;
+impl Action for SoundboardAction {
+	const UUID: ActionUuid = "me.amankhanna.oadiscord.soundboard";
+	type Settings = SoundboardSettings;
 
 	async fn will_appear(
 		&self,
@@ -96,10 +93,8 @@ impl Action for PlaySoundboardSoundAction {
 			return Ok(());
 		};
 
-		let args = sound.clone().into();
-
 		if let Err(e) = client
-			.emit_command(&SentCommand::PlaySoundboardSound(args))
+			.emit_command(&SentCommand::PlaySoundboardSound(sound.clone().into()))
 			.await
 		{
 			log::error!("Failed to play soundboard sound: {}", e);

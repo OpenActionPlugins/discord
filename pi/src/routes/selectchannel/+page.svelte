@@ -5,8 +5,12 @@
 		sendToPlugin,
 	} from "@openaction/svelte-pi";
 
-	import type { Guild } from "$lib/types";
 	import ApplicationSettings from "$lib/ApplicationSettings.svelte";
+
+	interface Guild {
+		id: string;
+		name: string;
+	}
 
 	interface Channel {
 		id: string;

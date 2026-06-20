@@ -1,8 +1,12 @@
 <script lang="ts">
 	import { actionSettings, eventTarget } from "@openaction/svelte-pi";
 
-	import type { Guild } from "$lib/types";
 	import ApplicationSettings from "$lib/ApplicationSettings.svelte";
+
+	interface Guild {
+		id: string;
+		name: string;
+	}
 
 	interface SoundboardSound {
 		name: string;
@@ -48,13 +52,6 @@
 
 		if (Array.isArray(payload.sounds)) {
 			sounds = payload.sounds;
-
-			if (
-				(!selectedSound || !sounds.some((s) => s.sound_id === selectedSound)) &&
-				sounds.length > 0
-			) {
-				$actionSettings = { ...$actionSettings, sound: sounds[0] };
-			}
 		}
 	});
 
@@ -68,13 +65,13 @@
 		type="text"
 		bind:value={search}
 		placeholder="Search sounds..."
-		class="w-full rounded-lg border border-neutral-600 bg-neutral-700 px-3 py-2 text-sm text-neutral-300 outline-none"
+		class="w-full rounded-lg border border-neutral-600 bg-neutral-700 px-3 py-2 text-sm text-neutral-300 outline-hidden"
 	/>
 
 	<div class="space-y-3">
 		{#each groupedSounds as group}
 			<div>
-				<div class="text-xm mb-2 text-center tracking-wide text-white">
+				<div class="mb-2 text-center tracking-wide text-white">
 					{group.label}
 				</div>
 				<div class="grid grid-cols-2 gap-1">

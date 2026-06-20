@@ -139,10 +139,10 @@
 			"States": [{ "Image": "actions/voicechannel_0" }, { "Image": "actions/voicechannel_1" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.playsoundboardsound",
+			"UUID": "me.amankhanna.oadiscord.soundboard",
 			"Name": "Soundboard",
 			"Icon": "actions/soundboard",
-			"Tooltip": "Play soundboard",
+			"Tooltip": "Play a sound from the soundboard in the current voice call",
 			"Controllers": ["Keypad"],
 			"PropertyInspectorPath": "pi/soundboard.html",
 			"DisableAutomaticStates": true,
