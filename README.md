@@ -19,3 +19,5 @@ An OpenAction ([OpenDeck](https://github.com/nekename/OpenDeck) / [Tacto](https:
 - Set Audio Device
 - Text Channel
 - Voice Channel
+- Soundboard
+- Notifications

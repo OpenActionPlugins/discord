@@ -1,7 +1,7 @@
 {
 	"Name": "Discord",
 	"Author": "nekename",
-	"Version": "0.4.0",
+	"Version": "0.5.0",
 	"Category": "Discord",
 	"Icon": "icon",
 	"OS": [{ "Platform": "windows" }, { "Platform": "mac" }, { "Platform": "linux" }],
@@ -137,6 +137,26 @@
 			"PropertyInspectorPath": "pi/selectchannel.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/voicechannel_0" }, { "Image": "actions/voicechannel_1" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.soundboard",
+			"Name": "Soundboard",
+			"Icon": "actions/soundboard",
+			"Tooltip": "Play a sound from the soundboard in the current voice call",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/soundboard.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/soundboard" }]
+		},
+		{
+			"UUID": "me.amankhanna.oadiscord.notifications",
+			"Name": "Notifications",
+			"Icon": "actions/notifications",
+			"Tooltip": "Receive notifications and surface them in the Discord app",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/notifications.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/notifications" }]
 		}
 	]
 }

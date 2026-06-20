@@ -5,6 +5,7 @@ use crate::client::{
 	CURRENT_VOICE_MODE, USER_VOICE_SETTINGS_MAP, schedule_reconnect,
 };
 
+use discord_ipc_rust::models::receive::events::NotificationCreateData;
 use discord_ipc_rust::models::receive::{
 	ReceivedItem, commands::ReturnedCommand, events::ReturnedEvent,
 };
@@ -71,6 +72,9 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 			ReturnedEvent::VoiceChannelSelect(data) => {
 				handle_select_voice_channel(data.channel_id).await;
 			}
+			ReturnedEvent::NotificationCreate(notification) => {
+				handle_notification(notification).await;
+			}
 			_ => {}
 		},
 		ReceivedItem::Command(command) => match *command {
@@ -87,6 +91,10 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 			ReturnedCommand::GetSelectedVoiceChannel(channel) => {
 				let channel_id = channel.map(|c| c.id);
 				handle_select_voice_channel(channel_id).await;
+			}
+			ReturnedCommand::GetSoundboardSounds(sounds) => {
+				crate::cache::update_soundboard_cache(&sounds).await;
+				crate::actions::soundboard::send_sounds_to_pi(None).await;
 			}
 			_ => {}
 		},
@@ -119,6 +127,13 @@ async fn handle_select_voice_channel(channel_id: Option<String>) {
 
 	for instance in visible_instances(crate::actions::VoiceChannelAction::UUID).await {
 		let _ = instance.get_settings().await;
+	}
+}
+
+async fn handle_notification(notification: NotificationCreateData) {
+	crate::cache::add_notification_to_cache(notification).await;
+	for instance in visible_instances(crate::actions::NotificationsAction::UUID).await {
+		let _ = crate::actions::notifications::update_title(&instance).await;
 	}
 }
 
