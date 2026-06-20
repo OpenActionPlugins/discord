@@ -90,6 +90,7 @@ impl Action for SoundboardAction {
 			let Some(mut client) = get_discord_client(instance).await? else {
 				return Ok(());
 			};
+
 			client
 				.emit_command(&SentCommand::PlaySoundboardSound(sound.clone().into()))
 				.await

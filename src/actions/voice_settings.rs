@@ -25,6 +25,7 @@ async fn update_voice_setting(
 		let Some(mut client) = get_discord_client(instance).await? else {
 			return Ok(());
 		};
+
 		client
 			.emit_command(&SentCommand::SetVoiceSettings(args))
 			.await

@@ -84,6 +84,7 @@ impl Action for NotificationsAction {
 			let Some(mut client) = get_discord_client(instance).await? else {
 				return Ok(());
 			};
+
 			client
 				.emit_command(&SentCommand::SelectTextChannel(SelectTextChannelArgs {
 					channel_id: Some(notification.channel_id),
