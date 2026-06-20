@@ -129,12 +129,12 @@
 			"States": [{ "Image": "actions/voicechannel_0" }, { "Image": "actions/voicechannel_1" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.notification",
-			"Name": "Notification",
+			"UUID": "me.amankhanna.oadiscord.notifications",
+			"Name": "Notifications",
 			"Icon": "actions/notifications",
-			"Tooltip": "Show notifications",
+			"Tooltip": "Receive notifications and surface them in the Discord app",
 			"Controllers": ["Keypad"],
-			"PropertyInspectorPath": "pi/notification.html",
+			"PropertyInspectorPath": "pi/notifications.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/notifications" }]
 		}

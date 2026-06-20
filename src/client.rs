@@ -121,7 +121,7 @@ async fn setup_discord_client(
 		SubscribeableEvent::NotificationCreate,
 	))
 	.await
-	.map_err(|e| format!("Failed to subscribe to notification create events: {}", e))?;
+	.map_err(|e| format!("Failed to subscribe to notification creation events: {}", e))?;
 
 	// Request current voice settings so buttons reflect the initial state immediately.
 	rpc.emit_command(&SentCommand::GetVoiceSettings)

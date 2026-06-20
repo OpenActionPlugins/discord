@@ -85,28 +85,6 @@ async fn send_cached_guilds_to_pi(instance: &Instance) -> OpenActionResult<()> {
 	}
 }
 
-pub async fn select_text_channel(
-	instance: &Instance,
-	args: SelectTextChannelArgs,
-) -> OpenActionResult<()> {
-	let mut client_lock = discord_client().write().await;
-	let Some(client) = client_lock.as_mut() else {
-		log::error!("Discord client not initialized");
-		instance.show_alert().await?;
-		return Ok(());
-	};
-
-	if let Err(e) = client
-		.emit_command(&SentCommand::SelectTextChannel(args))
-		.await
-	{
-		log::error!("Failed to select text channel: {}", e);
-		instance.show_alert().await?;
-	}
-
-	Ok(())
-}
-
 pub async fn send_channels_to_pi(channels: &[Channel]) {
 	#[derive(Serialize)]
 	struct ChannelInfo {
@@ -212,14 +190,25 @@ impl Action for TextChannelAction {
 			return Ok(());
 		}
 
-		select_text_channel(
-			instance,
-			SelectTextChannelArgs {
+		let mut client_lock = discord_client().write().await;
+		let Some(client) = client_lock.as_mut() else {
+			log::error!("Discord client not initialized");
+			instance.show_alert().await?;
+			return Ok(());
+		};
+
+		if let Err(e) = client
+			.emit_command(&SentCommand::SelectTextChannel(SelectTextChannelArgs {
 				channel_id: Some(settings.channel_id.clone()),
 				timeout: None,
-			},
-		)
-		.await
+			}))
+			.await
+		{
+			log::error!("Failed to select text channel: {}", e);
+			instance.show_alert().await?;
+		}
+
+		Ok(())
 	}
 }
 

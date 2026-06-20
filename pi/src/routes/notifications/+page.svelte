@@ -3,7 +3,7 @@
 
 	import ApplicationSettings from "$lib/ApplicationSettings.svelte";
 
-	let selectedActionType = $derived($actionSettings.action_type ?? "Show");
+	let selectedActionType = $derived($actionSettings.action_type ?? "DoNothing");
 
 	function updateActionType(event: Event) {
 		const action_type = (event.target as HTMLSelectElement).value;
@@ -13,16 +13,17 @@
 
 <div class="space-y-4 text-neutral-200">
 	<div class="grid grid-cols-[250px_1fr] items-center">
-		<label for="deviceTarget" class="text-sm">Action Type</label>
+		<label for="actionType" class="text-sm">Action Type</label>
 		<div class="select-wrapper">
 			<select
-				id="deviceTarget"
+				id="actionType"
 				value={selectedActionType}
 				onchange={updateActionType}
 				class="w-full"
 			>
 				<option value="DoNothing">Do Nothing</option>
 				<option value="Clear">Clear</option>
+				<option value="OpenAndClear">Open and Clear</option>
 				<option value="CycleRecentFirst">Cycle, Recent First</option>
 				<option value="CycleOldestFirst">Cycle, Oldest First</option>
 			</select>

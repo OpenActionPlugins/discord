@@ -39,7 +39,7 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 				handle_select_voice_channel(data.channel_id).await;
 			}
 			ReturnedEvent::NotificationCreate(notification) => {
-				handle_notification(notification).await
+				handle_notification(notification).await;
 			}
 			_ => {}
 		},
@@ -72,6 +72,13 @@ async fn handle_select_voice_channel(channel_id: Option<String>) {
 	*current_voice_channel().write().await = channel_id;
 	for instance in visible_instances(crate::actions::VoiceChannelAction::UUID).await {
 		let _ = instance.get_settings().await;
+	}
+}
+
+async fn handle_notification(notification: NotificationCreateData) {
+	crate::cache::add_notification_to_cache(notification).await;
+	for instance in visible_instances(crate::actions::NotificationsAction::UUID).await {
+		let _ = crate::actions::notifications::update_title(&instance).await;
 	}
 }
 
@@ -118,14 +125,6 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 			&instance,
 		)
 		.await;
-	}
-}
-
-async fn handle_notification(notification: NotificationCreateData) {
-	crate::cache::add_notification_to_cache(notification).await;
-
-	for instance in visible_instances(crate::actions::NotificationAction::UUID).await {
-		let _ = instance.get_settings().await;
 	}
 }
 
