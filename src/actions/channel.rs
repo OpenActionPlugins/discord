@@ -51,6 +51,7 @@ async fn get_all_instances() -> impl Iterator<Item = Arc<Instance>> {
 		.await
 		.into_iter()
 		.chain(visible_instances(VoiceChannelAction::UUID).await)
+		.chain(visible_instances(crate::actions::SoundboardAction::UUID).await)
 }
 
 pub async fn send_guilds_to_pi(instance: Option<&Instance>) {
@@ -76,7 +77,7 @@ pub async fn send_guilds_to_pi(instance: Option<&Instance>) {
 	}
 }
 
-async fn send_cached_guilds_to_pi(instance: &Instance) -> OpenActionResult<()> {
+pub async fn send_cached_guilds_to_pi(instance: &Instance) -> OpenActionResult<()> {
 	if !guild_cache().read().await.is_empty() {
 		send_guilds_to_pi(Some(instance)).await;
 		Ok(())

@@ -35,7 +35,7 @@ async fn set_button_title(instance: &Instance, sound: Option<&CachedSoundboardSo
 async fn send_cached_sounds_to_pi(instance: &Instance) -> OpenActionResult<()> {
 	if !soundboard_sounds_cache().read().await.is_empty() {
 		send_sounds_to_pi(Some(instance)).await;
-		crate::actions::channel::send_guilds_to_pi(Some(instance)).await;
+		crate::actions::channel::send_cached_guilds_to_pi(instance).await?;
 		Ok(())
 	} else {
 		refresh_soundboard_cache(instance).await

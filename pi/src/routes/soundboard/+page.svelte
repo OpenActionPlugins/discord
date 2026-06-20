@@ -32,7 +32,9 @@
 
 			if (!groups.has(sound.guild_id)) {
 				groups.set(sound.guild_id, {
-					label: guildMap.get(sound.guild_id) ?? sound.guild_id,
+					label:
+						guildMap.get(sound.guild_id) ??
+						(sound.guild_id === "0" ? "Discord sounds" : sound.guild_id),
 					sounds: [],
 				});
 			}
@@ -40,7 +42,13 @@
 			groups.get(sound.guild_id)!.sounds.push(sound);
 		}
 
-		return [...groups.values()];
+		return [...groups.values()].sort((a, b) =>
+			a.label === "Built-in"
+				? -1
+				: b.label === "Built-in"
+					? 1
+					: a.label.localeCompare(b.label),
+		);
 	});
 
 	eventTarget.addEventListener("sendToPropertyInspector", (event: any) => {
