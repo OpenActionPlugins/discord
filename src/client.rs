@@ -174,6 +174,10 @@ async fn setup_discord_client(
 		.await
 		.map_err(|e| format!("Failed to fetch initially selected voice channel: {}", e))?;
 
+	rpc.emit_command(&SentCommand::GetSoundboardSounds)
+		.await
+		.map_err(|e| format!("Failed to fetch soundboard sounds: {}", e))?;
+
 	let mut current = current_settings().write().await;
 	current.error = None;
 	if let Err(e) = set_global_settings(&*current).await {
