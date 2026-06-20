@@ -13,6 +13,7 @@
 		guild_id: string;
 		sound_id: string;
 		emoji_id: string | null;
+		emoji_name: string | null;
 	}
 
 	let guildMap = $state(new Map<string, string>());
@@ -98,7 +99,10 @@
 									alt=""
 									class="h-4 w-4 shrink-0"
 								/>
+							{:else if sound.emoji_name}
+								<span class="text-sm">{sound.emoji_name}</span>
 							{/if}
+
 							<span class="truncate">{sound.name}</span>
 						</button>
 					{/each}

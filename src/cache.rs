@@ -22,6 +22,7 @@ pub struct CachedSoundboardSound {
 	pub guild_id: String,
 	pub sound_id: String,
 	pub emoji_id: Option<String>,
+	pub emoji_name: Option<String>,
 }
 
 impl From<CachedSoundboardSound> for PlaySoundboardSoundArgs {
@@ -75,6 +76,7 @@ pub async fn update_soundboard_cache(sounds: &[SoundboardSound]) {
 			guild_id: s.guild_id.clone(),
 			sound_id: s.sound_id.clone(),
 			emoji_id: s.emoji_id.clone(),
+			emoji_name: s.emoji_name.clone(),
 		})
 		.collect();
 	cached.sort_by_key(|x| x.name.to_lowercase());
