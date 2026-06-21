@@ -41,7 +41,7 @@ impl ChannelKind {
 	}
 }
 
-static CHANNEL_REQUESTS: LazyLock<Mutex<HashMap<InstanceId, ChannelKind>>> =
+static CHANNEL_REQUESTS_MAP: LazyLock<Mutex<HashMap<InstanceId, ChannelKind>>> =
 	LazyLock::new(|| Mutex::new(HashMap::new()));
 
 async fn get_all_instances() -> impl Iterator<Item = Arc<Instance>> {
@@ -95,7 +95,7 @@ pub async fn send_channels_to_pi(channels: &[Channel]) {
 		channels: Vec<ChannelInfo>,
 	}
 
-	let mut requests = CHANNEL_REQUESTS.lock().await;
+	let mut requests = CHANNEL_REQUESTS_MAP.lock().await;
 
 	for instance in get_all_instances().await {
 		if let Some(kind) = requests.remove(&instance.instance_id) {
@@ -134,7 +134,7 @@ impl PiRequest {
 
 		match request {
 			PiRequest::RequestChannels { guild_id } => {
-				CHANNEL_REQUESTS
+				CHANNEL_REQUESTS_MAP
 					.lock()
 					.await
 					.insert(instance.instance_id.clone(), kind);
