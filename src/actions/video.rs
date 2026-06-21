@@ -1,4 +1,4 @@
-use crate::client::discord_client;
+use crate::client::get_discord_client;
 
 use std::collections::HashMap;
 
@@ -17,14 +17,15 @@ impl Action for ToggleVideoAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		let mut client_lock = discord_client().write().await;
-		let Some(client) = client_lock.as_mut() else {
-			log::error!("Discord client not initialized");
-			instance.show_alert().await?;
-			return Ok(());
+		let result = {
+			let Some(mut client) = get_discord_client(instance).await? else {
+				return Ok(());
+			};
+
+			client.emit_command(&SentCommand::ToggleVideo).await
 		};
 
-		if let Err(e) = client.emit_command(&SentCommand::ToggleVideo).await {
+		if let Err(e) = result {
 			log::error!("Failed to toggle video: {}", e);
 			instance.show_alert().await?;
 		}

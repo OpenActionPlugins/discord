@@ -1,5 +1,8 @@
-use super::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper, get_audio_device_settings};
 use super::update_voice_setting;
+use crate::{
+	audio_device_utils::{AudioDeviceType, AudioDeviceWrapper},
+	client::get_audio_device_settings,
+};
 
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 use serde::{Deserialize, Serialize};
@@ -38,12 +41,7 @@ async fn adjust_volume(
 	value: f32,
 	set: bool,
 ) -> OpenActionResult<()> {
-	let Some(device_settings) = get_audio_device_settings(device_type).await else {
-		log::error!(
-			"Failed to obtain voice settings for {:?} device",
-			device_type
-		);
-		instance.show_alert().await?;
+	let Some(device_settings) = get_audio_device_settings(instance, device_type).await? else {
 		return Ok(());
 	};
 

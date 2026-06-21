@@ -1,4 +1,3 @@
-pub mod audio_device_utils;
 pub mod set_audio_device;
 mod user_volume_control;
 mod volume_control;
@@ -7,22 +6,14 @@ pub use set_audio_device::SetAudioDeviceAction;
 pub use user_volume_control::UserVolumeControlAction;
 pub use volume_control::VolumeControlAction;
 
-use crate::client::discord_client;
+use crate::client::{CURRENT_VOICE_MODE, get_discord_client};
 
 use std::collections::HashMap;
-use std::sync::OnceLock;
 use std::sync::atomic::Ordering::Relaxed;
 
 use discord_ipc_rust::models::send::commands::{SentCommand, SetVoiceSettingsArgs};
 use discord_ipc_rust::models::shared::voice::VoiceSettingsMode;
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
-use tokio::sync::RwLock;
-
-// Last-known voice mode from Discord, updated via RPC events.
-pub fn current_voice_mode() -> &'static RwLock<Option<VoiceSettingsMode>> {
-	static MODE: OnceLock<RwLock<Option<VoiceSettingsMode>>> = OnceLock::new();
-	MODE.get_or_init(|| RwLock::new(None))
-}
 
 // Centralize the voice settings RPC call and Stream Deck feedback logic.
 async fn update_voice_setting(
@@ -30,19 +21,18 @@ async fn update_voice_setting(
 	args: SetVoiceSettingsArgs,
 	next_state: usize,
 ) -> OpenActionResult<()> {
-	// Take the shared IPC client so we can send the voice update command.
-	let mut client_lock = discord_client().write().await;
-	let Some(client) = client_lock.as_mut() else {
-		log::error!("Discord client not initialized");
-		instance.show_alert().await?;
-		return Ok(());
+	let result = {
+		let Some(mut client) = get_discord_client(instance).await? else {
+			return Ok(());
+		};
+
+		client
+			.emit_command(&SentCommand::SetVoiceSettings(args))
+			.await
 	};
 
 	// Send the RPC and update the Stream Deck feedback depending on the result.
-	match client
-		.emit_command(&SentCommand::SetVoiceSettings(args))
-		.await
-	{
+	match result {
 		Ok(_) => {
 			// Reflect the new voice state on the button.
 			instance.set_state(next_state as u16).await?;
@@ -197,7 +187,7 @@ impl Action for ToggleVoiceInputModeAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		let mode_lock = current_voice_mode().read().await;
+		let mode_lock = CURRENT_VOICE_MODE.read().await;
 		let Some(current_mode) = mode_lock.as_ref() else {
 			log::error!("Voice mode not yet known");
 			instance.show_alert().await?;

@@ -1,7 +1,5 @@
-use super::audio_device_utils::AudioDeviceType;
-
-use crate::actions::audio_device_utils::user_voice_settings_map;
-use crate::client::discord_client;
+use crate::audio_device_utils::AudioDeviceType;
+use crate::client::{USER_VOICE_SETTINGS_MAP, get_discord_client};
 
 use discord_ipc_rust::models::send::commands::{SentCommand, SetUserVoiceSettingsArgs};
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
@@ -40,17 +38,17 @@ async fn update_user_voice_settings(
 	instance: &Instance,
 	args: SetUserVoiceSettingsArgs,
 ) -> OpenActionResult<()> {
-	let mut client_lock = discord_client().write().await;
-	let Some(client) = client_lock.as_mut() else {
-		log::error!("Discord client not initialized");
-		instance.show_alert().await?;
-		return Ok(());
+	let reuslt = {
+		let Some(mut client) = get_discord_client(instance).await? else {
+			return Ok(());
+		};
+
+		client
+			.emit_command(&SentCommand::SetUserVoiceSettings(args))
+			.await
 	};
 
-	if let Err(e) = client
-		.emit_command(&SentCommand::SetUserVoiceSettings(args))
-		.await
-	{
+	if let Err(e) = reuslt {
 		log::error!("Failed to update user voice settings: {}", e);
 		instance.show_alert().await?;
 	}
@@ -66,7 +64,7 @@ async fn adjust_user_volume(
 ) -> OpenActionResult<()> {
 	let device_type = AudioDeviceType::Output;
 
-	let current_volume = match user_voice_settings_map().read().await.get(&user_id) {
+	let current_volume = match USER_VOICE_SETTINGS_MAP.read().await.get(&user_id) {
 		Some(settings) => settings.volume,
 		None => {
 			log::error!(
@@ -112,7 +110,7 @@ async fn send_users_to_pi(instance: &Instance) -> OpenActionResult<()> {
 		users: Vec<MinimalUser>,
 	}
 
-	let users = user_voice_settings_map()
+	let users = USER_VOICE_SETTINGS_MAP
 		.read()
 		.await
 		.iter()
@@ -158,7 +156,7 @@ impl Action for UserVolumeControlAction {
 		};
 
 		if matches!(settings.action_type, UserVolumeControlActionType::Mute) {
-			let new_mute_state = match user_voice_settings_map().read().await.get(user_id) {
+			let new_mute_state = match USER_VOICE_SETTINGS_MAP.read().await.get(user_id) {
 				Some(settings) => !settings.mute,
 				None => {
 					log::error!(

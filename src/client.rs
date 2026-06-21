@@ -1,9 +1,11 @@
+use crate::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper, UserVoiceSettings};
 use crate::oauth::exchange_code_for_token;
 use crate::rpc_events::handle_rpc_event;
-use crate::{DiscordSettings, current_settings};
+use crate::{CURRENT_SETTINGS, DiscordSettings};
 
+use std::collections::HashMap;
 use std::sync::{
-	OnceLock,
+	LazyLock,
 	atomic::{AtomicBool, Ordering},
 };
 
@@ -11,31 +13,78 @@ use discord_ipc_rust::DiscordIpcClient;
 use discord_ipc_rust::models::receive::{ReceivedItem, commands::ReturnedCommand};
 use discord_ipc_rust::models::send::commands::{AuthorizeArgs, SentCommand};
 use discord_ipc_rust::models::send::events::SubscribeableEvent;
-use openaction::set_global_settings;
-use tokio::sync::RwLock;
+use discord_ipc_rust::models::shared::voice::VoiceSettingsMode;
+use openaction::{Instance, OpenActionResult, set_global_settings};
+use tokio::sync::{MappedMutexGuard, Mutex, MutexGuard, RwLock};
 use tokio::time::{Duration, sleep};
 
 // Shared place to store the active Discord IPC connection for the lifetime of the plugin.
-pub fn discord_client() -> &'static RwLock<Option<DiscordIpcClient>> {
-	static CLIENT: OnceLock<RwLock<Option<DiscordIpcClient>>> = OnceLock::new();
-	CLIENT.get_or_init(|| RwLock::new(None))
-}
+static DISCORD_CLIENT: LazyLock<Mutex<Option<DiscordIpcClient>>> =
+	LazyLock::new(|| Mutex::new(None));
 
 // Shared place to store the user ID of the authenticated user.
-pub fn current_user_id() -> &'static RwLock<Option<String>> {
-	static USER_ID: OnceLock<RwLock<Option<String>>> = OnceLock::new();
-	USER_ID.get_or_init(|| RwLock::new(None))
-}
+pub static CURRENT_USER_ID: LazyLock<RwLock<Option<String>>> = LazyLock::new(|| RwLock::new(None));
+
+// Flag to avoid multiple concurrent reconnect attempts.
+static RECONNECTING: AtomicBool = AtomicBool::new(false);
+
+pub static AUDIO_INPUT_TYPE: LazyLock<RwLock<Option<AudioDeviceWrapper>>> =
+	LazyLock::new(|| RwLock::new(None));
+
+pub static AUDIO_OUTPUT_TYPE: LazyLock<RwLock<Option<AudioDeviceWrapper>>> =
+	LazyLock::new(|| RwLock::new(None));
 
 // Shared place to store the currently selected voice channel ID.
-pub fn current_voice_channel() -> &'static RwLock<Option<String>> {
-	static CHANNEL: OnceLock<RwLock<Option<String>>> = OnceLock::new();
-	CHANNEL.get_or_init(|| RwLock::new(None))
+pub static CURRENT_VOICE_CHANNEL: LazyLock<RwLock<Option<String>>> =
+	LazyLock::new(|| RwLock::new(None));
+
+// Last-known voice mode from Discord, updated via RPC events.
+pub static CURRENT_VOICE_MODE: LazyLock<RwLock<Option<VoiceSettingsMode>>> =
+	LazyLock::new(|| RwLock::new(None));
+
+pub static USER_VOICE_SETTINGS_MAP: LazyLock<RwLock<HashMap<String, UserVoiceSettings>>> =
+	LazyLock::new(|| RwLock::new(HashMap::new()));
+
+// Locks the Discord client and returns the guard, or shows an alert and returns None if not initialized.
+pub async fn get_discord_client(
+	instance: &Instance,
+) -> OpenActionResult<Option<MappedMutexGuard<'static, DiscordIpcClient>>> {
+	let guard = DISCORD_CLIENT.lock().await;
+	if guard.is_none() {
+		log::error!("Discord client not initialized");
+		instance.show_alert().await?;
+		return Ok(None);
+	}
+	Ok(Some(MutexGuard::map(guard, |opt| opt.as_mut().unwrap())))
+}
+
+pub async fn get_audio_device_settings(
+	instance: &Instance,
+	device_type: &AudioDeviceType,
+) -> OpenActionResult<Option<AudioDeviceWrapper>> {
+	let device = match device_type {
+		AudioDeviceType::Input => &AUDIO_INPUT_TYPE,
+		AudioDeviceType::Output => &AUDIO_OUTPUT_TYPE,
+	}
+	.read()
+	.await
+	.clone();
+
+	let Some(device) = device else {
+		log::error!(
+			"Failed to obtain voice settings for {:?} device",
+			device_type
+		);
+		instance.show_alert().await?;
+		return Ok(None);
+	};
+
+	Ok(Some(device))
 }
 
 // Store the latest error message in the global settings so the UI can surface it.
 pub async fn update_error(error: &str) {
-	let mut current = current_settings().write().await;
+	let mut current = CURRENT_SETTINGS.write().await;
 	if current.error.as_deref() == Some(error) {
 		return;
 	}
@@ -45,22 +94,16 @@ pub async fn update_error(error: &str) {
 	}
 }
 
-// Flag to avoid multiple concurrent reconnect attempts.
-fn reconnecting_flag() -> &'static AtomicBool {
-	static RECONNECTING: OnceLock<AtomicBool> = OnceLock::new();
-	RECONNECTING.get_or_init(|| AtomicBool::new(false))
-}
-
 // Attempts to reinitialize the Discord IPC client using the stored settings.
 async fn reinitialize() {
-	let settings = current_settings().read().await.clone();
+	let settings = CURRENT_SETTINGS.read().await.clone();
 	match create_discord_client(&settings).await {
 		Ok(client) => {
-			*discord_client().write().await = Some(client);
-			reconnecting_flag().store(false, Ordering::SeqCst);
+			*DISCORD_CLIENT.lock().await = Some(client);
+			RECONNECTING.store(false, Ordering::SeqCst);
 		}
 		Err(e) => {
-			*discord_client().write().await = None;
+			*DISCORD_CLIENT.lock().await = None;
 			log::error!("Failed to reinitialize client: {}", e);
 			update_error(&e).await;
 		}
@@ -69,13 +112,12 @@ async fn reinitialize() {
 
 // Schedules periodic reconnect attempts until successful.
 pub(crate) fn schedule_reconnect() {
-	let flag = reconnecting_flag();
-	if flag.swap(true, Ordering::SeqCst) {
+	if RECONNECTING.swap(true, Ordering::SeqCst) {
 		return;
 	}
 
-	tokio::spawn(async move {
-		while flag.load(Ordering::SeqCst) {
+	tokio::spawn(async {
+		while RECONNECTING.load(Ordering::SeqCst) {
 			reinitialize().await;
 			sleep(Duration::from_secs(5)).await;
 		}
@@ -83,7 +125,7 @@ pub(crate) fn schedule_reconnect() {
 }
 
 pub async fn update_voice_state_subscription(channel_id: String, subscribe: bool) {
-	let mut client_lock = discord_client().write().await;
+	let mut client_lock = DISCORD_CLIENT.lock().await;
 	let Some(client) = client_lock.as_mut() else {
 		log::error!("Discord client not initialized");
 		return;
@@ -184,7 +226,7 @@ async fn setup_discord_client(
 		.await
 		.map_err(|e| format!("Failed to fetch soundboard sounds: {}", e))?;
 
-	let mut current = current_settings().write().await;
+	let mut current = CURRENT_SETTINGS.write().await;
 	current.error = None;
 	if let Err(e) = set_global_settings(&*current).await {
 		log::error!("Failed to clear error: {}", e);
@@ -204,7 +246,7 @@ async fn create_discord_client(settings: &DiscordSettings) -> Result<DiscordIpcC
 		.map_err(|e| format!("Failed to connect to Discord: {}", e))?;
 	log::info!("Connected to Discord as {}", user.username);
 
-	*current_user_id().write().await = Some(user.id);
+	*CURRENT_USER_ID.write().await = Some(user.id);
 
 	if !settings.access_token.is_empty() {
 		setup_discord_client(&mut rpc, settings.access_token.clone()).await?;
@@ -241,14 +283,14 @@ async fn create_discord_client(settings: &DiscordSettings) -> Result<DiscordIpcC
 					Ok(access_token) => {
 						log::info!("Successfully obtained access token");
 
-						let mut current = current_settings().write().await;
+						let mut current = CURRENT_SETTINGS.write().await;
 						current.access_token = access_token.clone();
 						if let Err(e) = set_global_settings(&*current).await {
 							log::error!("Failed to save access token: {}", e);
 						}
 						drop(current);
 
-						let mut client_lock = discord_client().write().await;
+						let mut client_lock = DISCORD_CLIENT.lock().await;
 						let Some(client) = client_lock.as_mut() else {
 							log::error!("Discord client not initialized");
 							return;

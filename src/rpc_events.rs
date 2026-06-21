@@ -1,8 +1,9 @@
-use crate::actions::audio_device_utils::{
-	AudioDeviceType, AudioDeviceWrapper, user_voice_settings_map,
+use crate::CURRENT_SETTINGS;
+use crate::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper};
+use crate::client::{
+	AUDIO_INPUT_TYPE, AUDIO_OUTPUT_TYPE, CURRENT_USER_ID, CURRENT_VOICE_CHANNEL,
+	CURRENT_VOICE_MODE, USER_VOICE_SETTINGS_MAP, schedule_reconnect,
 };
-use crate::client::{current_user_id, current_voice_channel, schedule_reconnect};
-use crate::current_settings;
 
 use discord_ipc_rust::models::receive::events::NotificationCreateData;
 use discord_ipc_rust::models::receive::{
@@ -21,7 +22,7 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 					error.message
 				);
 				if error.code == 4006 {
-					let mut current = current_settings().write().await;
+					let mut current = CURRENT_SETTINGS.write().await;
 					current.access_token.clear();
 					if let Err(e) = set_global_settings(&*current).await {
 						log::error!("Failed to clear access token in settings: {}", e);
@@ -35,10 +36,10 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 					return;
 				};
 
-				let current_user_id = current_user_id().read().await;
+				let current_user_id = CURRENT_USER_ID.read().await;
 
 				if current_user_id.as_ref() != Some(&user.id) {
-					user_voice_settings_map()
+					USER_VOICE_SETTINGS_MAP
 						.write()
 						.await
 						.insert(user.id.clone(), state.into());
@@ -52,7 +53,7 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 			}
 			ReturnedEvent::VoiceStateDelete(state) => {
 				if let Some(user) = &state.user {
-					user_voice_settings_map().write().await.remove(&user.id);
+					USER_VOICE_SETTINGS_MAP.write().await.remove(&user.id);
 
 					for instance in
 						visible_instances(crate::actions::UserVolumeControlAction::UUID).await
@@ -99,15 +100,15 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 		},
 		ReceivedItem::SocketClosed => {
 			log::warn!("Discord closed; attempting to reconnect");
-			crate::cache::guild_cache().write().await.clear();
-			user_voice_settings_map().write().await.clear();
+			crate::cache::GUILD_CACHE.write().await.clear();
+			USER_VOICE_SETTINGS_MAP.write().await.clear();
 			schedule_reconnect();
 		}
 	}
 }
 
 async fn handle_select_voice_channel(channel_id: Option<String>) {
-	let old_channel = current_voice_channel().read().await.clone();
+	let old_channel = CURRENT_VOICE_CHANNEL.read().await.clone();
 
 	if old_channel == channel_id {
 		return;
@@ -115,10 +116,10 @@ async fn handle_select_voice_channel(channel_id: Option<String>) {
 
 	if let Some(old_channel) = old_channel {
 		crate::client::update_voice_state_subscription(old_channel, false).await;
-		user_voice_settings_map().write().await.clear();
+		USER_VOICE_SETTINGS_MAP.write().await.clear();
 	}
 
-	*current_voice_channel().write().await = channel_id.clone();
+	*CURRENT_VOICE_CHANNEL.write().await = channel_id.clone();
 
 	if let Some(new_channel) = channel_id {
 		crate::client::update_voice_state_subscription(new_channel, true).await;
@@ -145,7 +146,7 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 	if let Some(mode) = &settings.mode {
 		let is_ptt = mode.mode_type == "PUSH_TO_TALK";
 		update_action_state(crate::actions::ToggleVoiceInputModeAction::UUID, is_ptt).await;
-		*crate::actions::current_voice_mode().write().await =
+		*CURRENT_VOICE_MODE.write().await =
 			Some(discord_ipc_rust::models::shared::voice::VoiceSettingsMode {
 				mode_type: mode.mode_type.clone(),
 				..*mode
@@ -153,9 +154,7 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 	}
 
 	if let Some(input) = settings.input {
-		*crate::actions::audio_device_utils::audio_input_settings()
-			.write()
-			.await = Some(AudioDeviceWrapper {
+		*AUDIO_INPUT_TYPE.write().await = Some(AudioDeviceWrapper {
 			device_type: AudioDeviceType::Input,
 			device_id: input.device_id,
 			volume: input.volume,
@@ -164,9 +163,7 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 	}
 
 	if let Some(output) = settings.output {
-		*crate::actions::audio_device_utils::audio_output_settings()
-			.write()
-			.await = Some(AudioDeviceWrapper {
+		*AUDIO_OUTPUT_TYPE.write().await = Some(AudioDeviceWrapper {
 			device_type: AudioDeviceType::Output,
 			device_id: output.device_id,
 			volume: output.volume,

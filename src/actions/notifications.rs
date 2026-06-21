@@ -1,12 +1,12 @@
-use crate::cache::notification_cache;
-use crate::client::discord_client;
+use crate::cache::NOTIFICATION_CACHE;
+use crate::client::get_discord_client;
 
 use discord_ipc_rust::models::send::commands::{SelectTextChannelArgs, SentCommand};
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 use serde::{Deserialize, Serialize};
 
 pub async fn update_title(instance: &Instance) -> OpenActionResult<()> {
-	let cache = notification_cache().read().await;
+	let cache = NOTIFICATION_CACHE.read().await;
 	let title = format!("{}", cache.len());
 
 	if let Err(e) = instance.set_title(Some(title), None).await {
@@ -55,21 +55,21 @@ impl Action for NotificationsAction {
 		let notification = match settings.action_type {
 			NotificationsActionType::DoNothing => return Ok(()),
 			NotificationsActionType::Clear => {
-				notification_cache().write().await.clear();
+				NOTIFICATION_CACHE.write().await.clear();
 				update_title(instance).await?;
 				return Ok(());
 			}
 			NotificationsActionType::OpenAndClear => {
-				let mut cache = notification_cache().write().await;
+				let mut cache = NOTIFICATION_CACHE.write().await;
 				let notification = cache.pop_back();
 				cache.clear();
 				notification
 			}
 			NotificationsActionType::CycleRecentFirst => {
-				notification_cache().write().await.pop_back()
+				NOTIFICATION_CACHE.write().await.pop_back()
 			}
 			NotificationsActionType::CycleOldestFirst => {
-				notification_cache().write().await.pop_front()
+				NOTIFICATION_CACHE.write().await.pop_front()
 			}
 		};
 
@@ -80,20 +80,20 @@ impl Action for NotificationsAction {
 
 		update_title(instance).await?;
 
-		let mut client_lock = discord_client().write().await;
-		let Some(client) = client_lock.as_mut() else {
-			log::error!("Discord client not initialized");
-			instance.show_alert().await?;
-			return Ok(());
+		let result = {
+			let Some(mut client) = get_discord_client(instance).await? else {
+				return Ok(());
+			};
+
+			client
+				.emit_command(&SentCommand::SelectTextChannel(SelectTextChannelArgs {
+					channel_id: Some(notification.channel_id),
+					timeout: None,
+				}))
+				.await
 		};
 
-		if let Err(e) = client
-			.emit_command(&SentCommand::SelectTextChannel(SelectTextChannelArgs {
-				channel_id: Some(notification.channel_id),
-				timeout: None,
-			}))
-			.await
-		{
+		if let Err(e) = result {
 			log::error!("Failed to select text channel: {}", e);
 			instance.show_alert().await?;
 		}

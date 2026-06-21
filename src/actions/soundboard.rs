@@ -1,5 +1,5 @@
-use crate::cache::{CachedSoundboardSound, refresh_soundboard_cache, soundboard_sounds_cache};
-use crate::client::discord_client;
+use crate::cache::{CachedSoundboardSound, SOUNDBOARD_SOUNDS_CACHE, refresh_soundboard_cache};
+use crate::client::get_discord_client;
 
 use discord_ipc_rust::models::send::commands::SentCommand;
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait, visible_instances};
@@ -12,7 +12,7 @@ pub async fn send_sounds_to_pi(instance: Option<&Instance>) {
 	}
 
 	let payload = Payload {
-		sounds: soundboard_sounds_cache().read().await.clone(),
+		sounds: SOUNDBOARD_SOUNDS_CACHE.read().await.clone(),
 	};
 
 	match instance {
@@ -33,7 +33,7 @@ async fn set_button_title(instance: &Instance, sound: Option<&CachedSoundboardSo
 }
 
 async fn send_cached_sounds_to_pi(instance: &Instance) -> OpenActionResult<()> {
-	if !soundboard_sounds_cache().read().await.is_empty() {
+	if !SOUNDBOARD_SOUNDS_CACHE.read().await.is_empty() {
 		send_sounds_to_pi(Some(instance)).await;
 		crate::actions::channel::send_cached_guilds_to_pi(instance).await?;
 		Ok(())
@@ -86,17 +86,17 @@ impl Action for SoundboardAction {
 			return Ok(());
 		};
 
-		let mut client_lock = discord_client().write().await;
-		let Some(client) = client_lock.as_mut() else {
-			log::error!("Discord client not initialized");
-			instance.show_alert().await?;
-			return Ok(());
+		let result = {
+			let Some(mut client) = get_discord_client(instance).await? else {
+				return Ok(());
+			};
+
+			client
+				.emit_command(&SentCommand::PlaySoundboardSound(sound.clone().into()))
+				.await
 		};
 
-		if let Err(e) = client
-			.emit_command(&SentCommand::PlaySoundboardSound(sound.clone().into()))
-			.await
-		{
+		if let Err(e) = result {
 			log::error!("Failed to play soundboard sound: {}", e);
 			instance.show_alert().await?;
 		}

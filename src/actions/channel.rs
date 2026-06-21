@@ -1,8 +1,8 @@
-use crate::cache::{CachedGuild, guild_cache, refresh_guild_cache};
-use crate::client::{current_voice_channel, discord_client};
+use crate::cache::{CachedGuild, GUILD_CACHE, refresh_guild_cache};
+use crate::client::{CURRENT_VOICE_CHANNEL, get_discord_client};
 
 use std::collections::HashMap;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, LazyLock};
 
 use discord_ipc_rust::models::send::commands::{
 	GetChannelsArgs, SelectTextChannelArgs, SelectVoiceChannelArgs, SentCommand,
@@ -12,7 +12,7 @@ use openaction::{
 	Action, ActionUuid, Instance, InstanceId, OpenActionResult, async_trait, visible_instances,
 };
 use serde::{Deserialize, Serialize};
-use tokio::sync::RwLock;
+use tokio::sync::Mutex;
 
 #[derive(Clone, Copy)]
 enum ChannelKind {
@@ -41,10 +41,8 @@ impl ChannelKind {
 	}
 }
 
-fn channel_request_map() -> &'static RwLock<HashMap<InstanceId, ChannelKind>> {
-	static REQUESTS: OnceLock<RwLock<HashMap<InstanceId, ChannelKind>>> = OnceLock::new();
-	REQUESTS.get_or_init(|| RwLock::new(HashMap::new()))
-}
+static CHANNEL_REQUESTS_MAP: LazyLock<Mutex<HashMap<InstanceId, ChannelKind>>> =
+	LazyLock::new(|| Mutex::new(HashMap::new()));
 
 async fn get_all_instances() -> impl Iterator<Item = Arc<Instance>> {
 	visible_instances(TextChannelAction::UUID)
@@ -60,7 +58,7 @@ pub async fn send_guilds_to_pi(instance: Option<&Instance>) {
 		guilds: Vec<CachedGuild>,
 	}
 
-	let cache = guild_cache().read().await;
+	let cache = GUILD_CACHE.read().await;
 	let payload = Payload {
 		guilds: cache.clone(),
 	};
@@ -78,7 +76,7 @@ pub async fn send_guilds_to_pi(instance: Option<&Instance>) {
 }
 
 pub async fn send_cached_guilds_to_pi(instance: &Instance) -> OpenActionResult<()> {
-	if !guild_cache().read().await.is_empty() {
+	if !GUILD_CACHE.read().await.is_empty() {
 		send_guilds_to_pi(Some(instance)).await;
 		Ok(())
 	} else {
@@ -97,7 +95,7 @@ pub async fn send_channels_to_pi(channels: &[Channel]) {
 		channels: Vec<ChannelInfo>,
 	}
 
-	let mut requests = channel_request_map().write().await;
+	let mut requests = CHANNEL_REQUESTS_MAP.lock().await;
 
 	for instance in get_all_instances().await {
 		if let Some(kind) = requests.remove(&instance.instance_id) {
@@ -136,17 +134,22 @@ impl PiRequest {
 
 		match request {
 			PiRequest::RequestChannels { guild_id } => {
-				channel_request_map()
-					.write()
+				CHANNEL_REQUESTS_MAP
+					.lock()
 					.await
 					.insert(instance.instance_id.clone(), kind);
 
-				let mut client_lock = discord_client().write().await;
-				if let Some(client) = client_lock.as_mut()
-					&& let Err(e) = client
+				let result = {
+					let Some(mut client) = get_discord_client(instance).await? else {
+						return Ok(());
+					};
+
+					client
 						.emit_command(&SentCommand::GetChannels(GetChannelsArgs { guild_id }))
 						.await
-				{
+				};
+
+				if let Err(e) = result {
 					log::error!("Failed to request channels: {}", e);
 				}
 			}
@@ -191,20 +194,20 @@ impl Action for TextChannelAction {
 			return Ok(());
 		}
 
-		let mut client_lock = discord_client().write().await;
-		let Some(client) = client_lock.as_mut() else {
-			log::error!("Discord client not initialized");
-			instance.show_alert().await?;
-			return Ok(());
+		let result = {
+			let Some(mut client) = get_discord_client(instance).await? else {
+				return Ok(());
+			};
+
+			client
+				.emit_command(&SentCommand::SelectTextChannel(SelectTextChannelArgs {
+					channel_id: Some(settings.channel_id.clone()),
+					timeout: None,
+				}))
+				.await
 		};
 
-		if let Err(e) = client
-			.emit_command(&SentCommand::SelectTextChannel(SelectTextChannelArgs {
-				channel_id: Some(settings.channel_id.clone()),
-				timeout: None,
-			}))
-			.await
-		{
+		if let Err(e) = result {
 			log::error!("Failed to select text channel: {}", e);
 			instance.show_alert().await?;
 		}
@@ -217,7 +220,7 @@ async fn sync_voice_channel_state(
 	instance: &Instance,
 	settings: &ChannelActionSettings,
 ) -> OpenActionResult<()> {
-	let is_active = current_voice_channel()
+	let is_active = CURRENT_VOICE_CHANNEL
 		.read()
 		.await
 		.as_deref()
@@ -271,14 +274,7 @@ impl Action for VoiceChannelAction {
 			return Ok(());
 		}
 
-		let mut client_lock = discord_client().write().await;
-		let Some(client) = client_lock.as_mut() else {
-			log::error!("Discord client not initialized");
-			instance.show_alert().await?;
-			return Ok(());
-		};
-
-		let current = current_voice_channel().read().await;
+		let current = CURRENT_VOICE_CHANNEL.read().await;
 		let target = if current.as_deref() != Some(settings.channel_id.as_str()) {
 			Some(settings.channel_id.clone())
 		} else {
@@ -286,15 +282,22 @@ impl Action for VoiceChannelAction {
 		};
 		drop(current);
 
-		if let Err(e) = client
-			.emit_command(&SentCommand::SelectVoiceChannel(SelectVoiceChannelArgs {
-				channel_id: target,
-				force: Some(true),
-				navigate: Some(false),
-				timeout: None,
-			}))
-			.await
-		{
+		let result = {
+			let Some(mut client) = get_discord_client(instance).await? else {
+				return Ok(());
+			};
+
+			client
+				.emit_command(&SentCommand::SelectVoiceChannel(SelectVoiceChannelArgs {
+					channel_id: target,
+					force: Some(true),
+					navigate: Some(false),
+					timeout: None,
+				}))
+				.await
+		};
+
+		if let Err(e) = result {
 			log::error!("Failed to select or deselect voice channel: {}", e);
 			instance.show_alert().await?;
 		}

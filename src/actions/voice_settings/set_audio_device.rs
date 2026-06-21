@@ -1,5 +1,8 @@
-use super::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper, get_audio_device_settings};
 use super::update_voice_setting;
+use crate::{
+	audio_device_utils::{AudioDeviceType, AudioDeviceWrapper},
+	client::get_audio_device_settings,
+};
 
 use discord_ipc_rust::models::shared::voice::VoiceAvailableDevice;
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
@@ -36,12 +39,7 @@ async fn update_device(
 	device_type: &AudioDeviceType,
 	device_id: String,
 ) -> OpenActionResult<()> {
-	let Some(current) = get_audio_device_settings(device_type).await else {
-		log::error!(
-			"Failed to obtain voice settings for {:?} device",
-			device_type
-		);
-		instance.show_alert().await?;
+	let Some(current) = get_audio_device_settings(instance, device_type).await? else {
 		return Ok(());
 	};
 
@@ -78,17 +76,19 @@ pub async fn send_available_devices_to_pi(instance: &Instance) -> OpenActionResu
 	}
 
 	async fn fetch_device_list(
+		instance: &Instance,
 		device_type: &AudioDeviceType,
-	) -> (String, Vec<VoiceAvailableDevice>) {
-		get_audio_device_settings(device_type)
-			.await
+	) -> OpenActionResult<(String, Vec<VoiceAvailableDevice>)> {
+		Ok(get_audio_device_settings(instance, device_type)
+			.await?
 			.map(|s| (s.device_id, s.available_devices))
-			.unwrap_or_default()
+			.unwrap_or_default())
 	}
 
-	let (selected_input_device, input_devices) = fetch_device_list(&AudioDeviceType::Input).await;
+	let (selected_input_device, input_devices) =
+		fetch_device_list(instance, &AudioDeviceType::Input).await?;
 	let (selected_output_device, output_devices) =
-		fetch_device_list(&AudioDeviceType::Output).await;
+		fetch_device_list(instance, &AudioDeviceType::Output).await?;
 
 	instance
 		.send_to_property_inspector(Payload {
