@@ -2,7 +2,7 @@ use crate::cache::{CachedGuild, GUILD_CACHE, refresh_guild_cache};
 use crate::client::{CURRENT_VOICE_CHANNEL, get_discord_client};
 
 use std::collections::HashMap;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, LazyLock};
 
 use discord_ipc_rust::models::send::commands::{
 	GetChannelsArgs, SelectTextChannelArgs, SelectVoiceChannelArgs, SentCommand,
@@ -12,7 +12,7 @@ use openaction::{
 	Action, ActionUuid, Instance, InstanceId, OpenActionResult, async_trait, visible_instances,
 };
 use serde::{Deserialize, Serialize};
-use tokio::sync::RwLock;
+use tokio::sync::Mutex;
 
 #[derive(Clone, Copy)]
 enum ChannelKind {
@@ -41,10 +41,8 @@ impl ChannelKind {
 	}
 }
 
-fn channel_request_map() -> &'static RwLock<HashMap<InstanceId, ChannelKind>> {
-	static REQUESTS: OnceLock<RwLock<HashMap<InstanceId, ChannelKind>>> = OnceLock::new();
-	REQUESTS.get_or_init(|| RwLock::new(HashMap::new()))
-}
+static CHANNEL_REQUESTS: LazyLock<Mutex<HashMap<InstanceId, ChannelKind>>> =
+	LazyLock::new(|| Mutex::new(HashMap::new()));
 
 async fn get_all_instances() -> impl Iterator<Item = Arc<Instance>> {
 	visible_instances(TextChannelAction::UUID)
@@ -97,7 +95,7 @@ pub async fn send_channels_to_pi(channels: &[Channel]) {
 		channels: Vec<ChannelInfo>,
 	}
 
-	let mut requests = channel_request_map().write().await;
+	let mut requests = CHANNEL_REQUESTS.lock().await;
 
 	for instance in get_all_instances().await {
 		if let Some(kind) = requests.remove(&instance.instance_id) {
@@ -136,8 +134,8 @@ impl PiRequest {
 
 		match request {
 			PiRequest::RequestChannels { guild_id } => {
-				channel_request_map()
-					.write()
+				CHANNEL_REQUESTS
+					.lock()
 					.await
 					.insert(instance.instance_id.clone(), kind);
 
