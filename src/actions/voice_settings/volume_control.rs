@@ -119,6 +119,14 @@ impl Action for VolumeControlAction {
 	const UUID: ActionUuid = "me.amankhanna.oadiscord.volumecontrol";
 	type Settings = VolumeControlSettings;
 
+	async fn will_appear(
+		&self,
+		instance: &Instance,
+		settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		update_feedback(instance, settings).await
+	}
+
 	async fn did_receive_settings(
 		&self,
 		instance: &Instance,
@@ -160,26 +168,26 @@ impl Action for VolumeControlAction {
 
 		match device_type {
 			AudioDeviceType::Input => {
-				let new_mute = !device_settings.enable;
+				let new_mute = device_settings.enable;
 				update_voice_setting(
 					instance,
 					SetVoiceSettingsArgs {
 						mute: Some(new_mute),
 						..Default::default()
 					},
-					if new_mute { 1 } else { 0 },
+					0,
 				)
 				.await
 			}
 			AudioDeviceType::Output => {
-				let new_deaf = !device_settings.enable;
+				let new_deaf = device_settings.enable;
 				update_voice_setting(
 					instance,
 					SetVoiceSettingsArgs {
 						deaf: Some(new_deaf),
 						..Default::default()
 					},
-					if new_deaf { 1 } else { 0 },
+					0,
 				)
 				.await
 			}

@@ -160,7 +160,7 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 			device_id: input.device_id,
 			volume: input.volume,
 			available_devices: input.available_devices,
-			enable: mute,
+			enable: !mute && !deaf,
 		});
 	}
 
@@ -172,7 +172,7 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 			device_id: output.device_id,
 			volume: output.volume,
 			available_devices: output.available_devices,
-			enable: deaf,
+			enable: !deaf,
 		});
 	}
 
