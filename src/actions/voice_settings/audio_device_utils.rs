@@ -56,6 +56,7 @@ pub struct AudioDeviceWrapper {
 	pub device_id: String,
 	pub volume: f32,
 	pub available_devices: Vec<VoiceAvailableDevice>,
+	pub enable: bool,
 }
 
 impl From<AudioDeviceWrapper> for SetVoiceSettingsArgs {
