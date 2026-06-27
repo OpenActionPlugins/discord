@@ -1,6 +1,7 @@
 use super::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper, get_audio_device_settings};
 use super::update_voice_setting;
 
+use discord_ipc_rust::models::send::commands::SetVoiceSettingsArgs;
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 use serde::{Deserialize, Serialize};
 
@@ -30,6 +31,55 @@ impl Default for VolumeControlSettings {
 			set_volume: 100,
 		}
 	}
+}
+
+const MUTED_ICON: &str = include_str!("../../../assets/encoders/microphoneBigMuted.svg");
+const UNMUTED_ICON: &str = include_str!("../../../assets/encoders/microphoneBig.svg");
+const DEAFEN_ICON: &str = include_str!("../../../assets/encoders/headphonesBigMuted.svg");
+const UNDEAFEN_ICON: &str = include_str!("../../../assets/encoders/headphonesBig.svg");
+
+async fn update_feedback(
+	instance: &Instance,
+	settings: &VolumeControlSettings,
+) -> OpenActionResult<()> {
+	let device_type = &settings.device_type;
+	let Some(device_settings) = get_audio_device_settings(device_type).await else {
+		log::error!(
+			"Failed to obtain voice settings for {:?} device",
+			device_type
+		);
+		instance.show_alert().await?;
+		return Ok(());
+	};
+
+	let icon = match (device_type, device_settings.enable) {
+		(AudioDeviceType::Input, true) => UNMUTED_ICON,
+		(AudioDeviceType::Input, false) => MUTED_ICON,
+		(AudioDeviceType::Output, true) => UNDEAFEN_ICON,
+		(AudioDeviceType::Output, false) => DEAFEN_ICON,
+	};
+
+	let value = device_type.to_linear(device_settings.volume) as i32;
+	let indicator_value = match device_type {
+		AudioDeviceType::Input => value,
+		AudioDeviceType::Output => value / 2,
+	};
+
+	let title = match device_type {
+		AudioDeviceType::Input => "Microphone",
+		AudioDeviceType::Output => "Headphones",
+	};
+
+	instance
+		.set_feedback(&serde_json::json!({
+			"title": title,
+			"icon": icon,
+			"value": format!("{}%", value),
+			"indicator": {
+				"value": indicator_value
+			}
+		}))
+		.await
 }
 
 async fn adjust_volume(
@@ -69,6 +119,14 @@ impl Action for VolumeControlAction {
 	const UUID: ActionUuid = "me.amankhanna.oadiscord.volumecontrol";
 	type Settings = VolumeControlSettings;
 
+	async fn did_receive_settings(
+		&self,
+		instance: &Instance,
+		settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		update_feedback(instance, settings).await
+	}
+
 	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {
 		let value = match settings.action_type {
 			VolumeControlActionType::Increase => settings.step_size as f32,
@@ -85,6 +143,49 @@ impl Action for VolumeControlAction {
 		.await
 	}
 
+	async fn dial_up(
+		&self,
+		instance: &Instance,
+		settings: &Self::Settings,
+	) -> OpenActionResult<()> {
+		let device_type = &settings.device_type;
+		let Some(device_settings) = get_audio_device_settings(device_type).await else {
+			log::error!(
+				"Failed to obtain voice settings for {:?} device",
+				device_type
+			);
+			instance.show_alert().await?;
+			return Ok(());
+		};
+
+		match device_type {
+			AudioDeviceType::Input => {
+				let new_mute = !device_settings.enable;
+				update_voice_setting(
+					instance,
+					SetVoiceSettingsArgs {
+						mute: Some(new_mute),
+						..Default::default()
+					},
+					if new_mute { 1 } else { 0 },
+				)
+				.await
+			}
+			AudioDeviceType::Output => {
+				let new_deaf = !device_settings.enable;
+				update_voice_setting(
+					instance,
+					SetVoiceSettingsArgs {
+						deaf: Some(new_deaf),
+						..Default::default()
+					},
+					if new_deaf { 1 } else { 0 },
+				)
+				.await
+			}
+		}
+	}
+
 	async fn dial_rotate(
 		&self,
 		instance: &Instance,
@@ -93,7 +194,6 @@ impl Action for VolumeControlAction {
 		_pressed: bool,
 	) -> OpenActionResult<()> {
 		let delta = (settings.step_size as f32) * ticks as f32;
-
 		adjust_volume(instance, &settings.device_type, delta, false).await
 	}
 }
