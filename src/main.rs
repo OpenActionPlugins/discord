@@ -46,11 +46,25 @@ impl global_events::GlobalEventHandler for GlobalEventHandler {
 		&self,
 		event: global_events::DidReceiveGlobalSettingsEvent,
 	) -> OpenActionResult<()> {
-		let settings: DiscordSettings =
+		let mut settings: DiscordSettings =
 			serde_json::from_value(event.payload.settings).unwrap_or_default();
 
-		// Only react when the stored settings actually changed so we can avoid reconnect churn.
 		let current = current_settings().read().await;
+
+		// The host can push settings that lag behind our own state (e.g. the property
+		// inspector echoing a stale snapshot right after we saved a freshly obtained
+		// access token). Never let such a push silently downgrade a valid token back to
+		// empty unless the app credentials actually changed, which legitimately requires
+		// re-authorization.
+		if settings.access_token.is_empty()
+			&& !current.access_token.is_empty()
+			&& current.client_id == settings.client_id
+			&& current.client_secret == settings.client_secret
+		{
+			settings.access_token = current.access_token.clone();
+		}
+
+		// Only react when the stored settings actually changed so we can avoid reconnect churn.
 		let settings_changed = current.client_id != settings.client_id
 			|| current.client_secret != settings.client_secret
 			|| current.access_token != settings.access_token
