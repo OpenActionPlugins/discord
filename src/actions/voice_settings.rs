@@ -56,6 +56,54 @@ async fn update_voice_setting(
 	Ok(())
 }
 
+// Captured from Elgato Stream Deck on Windows (ipcproxy.log):
+//   SET_VOICE_SETTINGS {"mute":false}
+//   PUSH_TO_TALK {"active":true|false}
+// PUSH_TO_TALK is undocumented in Discord's public RPC spec. Discord replies
+// data:null then SPEAKING_START/STOP — green ring for the whole hold.
+async fn push_to_talk_set(instance: &Instance, talking: bool) -> OpenActionResult<()> {
+	let mut client_lock = discord_client().write().await;
+	let Some(client) = client_lock.as_mut() else {
+		log::error!("Discord client not initialized");
+		instance.show_alert().await?;
+		return Ok(());
+	};
+
+	if let Err(e) = client
+		.emit_command(&SentCommand::SetVoiceSettings(SetVoiceSettingsArgs {
+			mute: Some(false),
+			..Default::default()
+		}))
+		.await
+	{
+		log::error!("SET_VOICE_SETTINGS mute=false failed: {}", e);
+		instance.show_alert().await?;
+		return Ok(());
+	}
+
+	let nonce = format!(
+		"ptt-{}-{}",
+		if talking { "down" } else { "up" },
+		std::time::SystemTime::now()
+			.duration_since(std::time::UNIX_EPOCH)
+			.map(|d| d.as_nanos())
+			.unwrap_or(0)
+	);
+	let payload = serde_json::json!({
+		"cmd": "PUSH_TO_TALK",
+		"args": { "active": talking },
+		"nonce": nonce,
+	});
+	if let Err(e) = client.emit_string(&payload.to_string()).await {
+		log::error!("PUSH_TO_TALK active={} failed: {}", talking, e);
+		instance.show_alert().await?;
+		return Ok(());
+	}
+
+	instance.set_state(if talking { 1 } else { 0 }).await?;
+	Ok(())
+}
+
 pub struct ToggleMuteAction;
 #[async_trait]
 impl Action for ToggleMuteAction {
@@ -158,15 +206,7 @@ impl Action for PushToTalkAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		update_voice_setting(
-			instance,
-			SetVoiceSettingsArgs {
-				mute: Some(false),
-				..Default::default()
-			},
-			1,
-		)
-		.await
+		push_to_talk_set(instance, true).await
 	}
 
 	async fn key_up(
@@ -174,15 +214,7 @@ impl Action for PushToTalkAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		update_voice_setting(
-			instance,
-			SetVoiceSettingsArgs {
-				mute: Some(true),
-				..Default::default()
-			},
-			0,
-		)
-		.await
+		push_to_talk_set(instance, false).await
 	}
 }
 
