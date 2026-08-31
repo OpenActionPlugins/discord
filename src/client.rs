@@ -96,7 +96,13 @@ pub async fn update_voice_state_subscription(channel_id: String, subscribe: bool
 		SubscribeableEvent::VoiceStateUpdate {
 			channel_id: channel_id.clone(),
 		},
-		SubscribeableEvent::VoiceStateDelete { channel_id },
+		SubscribeableEvent::VoiceStateDelete {
+			channel_id: channel_id.clone(),
+		},
+		SubscribeableEvent::SpeakingStart {
+			channel_id: channel_id.clone(),
+		},
+		SubscribeableEvent::SpeakingStop { channel_id },
 	];
 
 	for event in events {

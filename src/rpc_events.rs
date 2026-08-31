@@ -38,29 +38,28 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 				let current_user_id = current_user_id().read().await;
 
 				if current_user_id.as_ref() != Some(&user.id) {
-					user_voice_settings_map()
-						.write()
-						.await
-						.insert(user.id.clone(), state.into());
+					let user_id = user.id.clone();
+					let mut map = user_voice_settings_map().write().await;
+					// A voice state payload doesn't carry speaking status, so carry over
+					// whatever we last learned from a SpeakingStart/SpeakingStop event.
+					let speaking = map.get(&user_id).is_some_and(|s| s.speaking);
+					let mut settings: crate::actions::audio_device_utils::UserVoiceSettings =
+						state.into();
+					settings.speaking = speaking;
+					map.insert(user_id, settings);
+					drop(map);
 
-					for instance in
-						visible_instances(crate::actions::UserVolumeControlAction::UUID).await
-					{
-						let _ = instance.get_settings().await;
-					}
+					refresh_user_volume_instances().await;
 				}
 			}
 			ReturnedEvent::VoiceStateDelete(state) => {
 				if let Some(user) = &state.user {
 					user_voice_settings_map().write().await.remove(&user.id);
-
-					for instance in
-						visible_instances(crate::actions::UserVolumeControlAction::UUID).await
-					{
-						let _ = instance.get_settings().await;
-					}
+					refresh_user_volume_instances().await;
 				}
 			}
+			ReturnedEvent::SpeakingStart(data) => set_speaking(&data.user_id, true).await,
+			ReturnedEvent::SpeakingStop(data) => set_speaking(&data.user_id, false).await,
 			ReturnedEvent::VideoStateUpdate(state) => {
 				update_action_state(crate::actions::ToggleVideoAction::UUID, state.active).await;
 			}
@@ -104,6 +103,29 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 			schedule_reconnect();
 		}
 	}
+}
+
+// Re-reads settings on every visible User Volume Control instance so their displays refresh
+// (this round-trips through `did_receive_settings`, which knows each instance's target user).
+async fn refresh_user_volume_instances() {
+	for instance in visible_instances(crate::actions::UserVolumeControlAction::UUID).await {
+		let _ = instance.get_settings().await;
+	}
+}
+
+// Updates a user's cached speaking state and refreshes any instance displaying them.
+async fn set_speaking(user_id: &str, speaking: bool) {
+	let mut map = user_voice_settings_map().write().await;
+	let Some(settings) = map.get_mut(user_id) else {
+		return;
+	};
+	if settings.speaking == speaking {
+		return;
+	}
+	settings.speaking = speaking;
+	drop(map);
+
+	refresh_user_volume_instances().await;
 }
 
 async fn handle_select_voice_channel(channel_id: Option<String>) {
