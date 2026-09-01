@@ -16,6 +16,7 @@ use tokio::sync::RwLock;
 pub struct CachedGuild {
 	id: String,
 	name: String,
+	icon_url: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -62,10 +63,21 @@ pub async fn update_guild_cache(guilds: &[Guild]) {
 		.map(|g| CachedGuild {
 			id: g.id.clone(),
 			name: g.name.clone(),
+			icon_url: g.icon_url.clone(),
 		})
 		.collect();
 	cached.sort_by_key(|x| x.name.to_lowercase());
 	*guild_cache().write().await = cached;
+}
+
+// Looks up a guild's icon URL by ID, for rendering it onto physical keys/dials.
+pub async fn guild_icon_url(guild_id: &str) -> Option<String> {
+	guild_cache()
+		.read()
+		.await
+		.iter()
+		.find(|g| g.id == guild_id)
+		.and_then(|g| g.icon_url.clone())
 }
 
 pub async fn refresh_guild_cache(instance: &Instance) -> OpenActionResult<()> {

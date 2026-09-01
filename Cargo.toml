@@ -12,7 +12,7 @@ log = "0.4"
 simplelog = "0.12"
 reqwest = { version = "0.13", default-features = false, features = ["native-tls", "form", "json"] }
 base64 = "0.22"
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png", "webp"] }
 
 [profile.release]
 strip = true

@@ -1,5 +1,6 @@
-use crate::cache::{CachedGuild, guild_cache, refresh_guild_cache};
+use crate::cache::{CachedGuild, guild_cache, guild_icon_url, refresh_guild_cache};
 use crate::client::{current_voice_channel, discord_client};
+use crate::image_utils;
 
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
@@ -213,6 +214,30 @@ impl Action for TextChannelAction {
 	}
 }
 
+const GUILD_ICON_SIZE: u32 = 96;
+
+// Downloads the target voice channel's server icon (the closest thing Discord exposes to a
+// "channel image"), resized but otherwise untouched - no circular crop, no border.
+async fn guild_icon_data_uri(guild_id: &str) -> Option<String> {
+	let Some(icon_url) = guild_icon_url(guild_id).await else {
+		log::warn!("No cached icon URL for guild '{}'", guild_id);
+		return None;
+	};
+
+	let bytes = image_utils::fetch_bytes(&icon_url).await?;
+
+	let Some(png_bytes) = image_utils::resized_png(&bytes, GUILD_ICON_SIZE) else {
+		log::error!(
+			"Failed to render icon for guild '{}' from {}",
+			guild_id,
+			icon_url
+		);
+		return None;
+	};
+
+	Some(image_utils::to_data_uri(&png_bytes))
+}
+
 async fn sync_voice_channel_state(
 	instance: &Instance,
 	settings: &ChannelActionSettings,
@@ -223,7 +248,32 @@ async fn sync_voice_channel_state(
 		.as_deref()
 		.is_some_and(|ch| settings.channel_id == ch);
 
-	instance.set_state(if is_active { 1 } else { 0 }).await
+	instance.set_state(if is_active { 1 } else { 0 }).await?;
+
+	// The "connected" state always keeps its default manifest icon (red hang-up). Explicitly
+	// reset it back to that default rather than just leaving it untouched, since an earlier
+	// build of this plugin used to write a custom image there - without this, that stale image
+	// would otherwise persist forever once set (OpenDeck remembers a per-state image until
+	// something else overwrites it).
+	if let Err(e) = instance.set_image(None::<String>, Some(1)).await {
+		log::error!(
+			"Failed to reset connected-state image for voice channel action: {}",
+			e
+		);
+	}
+
+	// Only replace the "disconnected" state's icon with the server's image. If the server has
+	// no icon (or it fails to download/decode), leave the default disconnected icon alone too
+	// rather than blanking it.
+	if !is_active
+		&& !settings.guild_id.is_empty()
+		&& let Some(icon) = guild_icon_data_uri(&settings.guild_id).await
+		&& let Err(e) = instance.set_image(Some(icon), Some(0)).await
+	{
+		log::error!("Failed to set image for voice channel action: {}", e);
+	}
+
+	Ok(())
 }
 
 pub struct VoiceChannelAction;
