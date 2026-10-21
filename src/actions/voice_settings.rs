@@ -1,6 +1,6 @@
 pub mod audio_device_utils;
 pub mod set_audio_device;
-mod user_volume_control;
+pub mod user_volume_control;
 mod volume_control;
 
 pub use set_audio_device::SetAudioDeviceAction;

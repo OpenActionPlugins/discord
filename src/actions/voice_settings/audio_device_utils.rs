@@ -90,6 +90,7 @@ pub struct UserVoiceSettings {
 	pub self_deaf: bool,
 	pub server_mute: bool,
 	pub server_deaf: bool,
+    pub avatar: Option<String>,
 }
 
 impl From<VoiceStateData> for UserVoiceSettings {
@@ -102,6 +103,7 @@ impl From<VoiceStateData> for UserVoiceSettings {
 			self_deaf: value.state.self_deaf,
 			server_mute: value.state.mute,
 			server_deaf: value.state.deaf,
+            avatar: value.user.and_then(|u| u.avatar),
 		}
 	}
 }

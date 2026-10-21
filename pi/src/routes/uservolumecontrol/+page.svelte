@@ -12,6 +12,7 @@
 	interface User {
 		id: string;
 		nick: string;
+		avatar: string;
 	}
 
 	const MIN_STEP_SIZE = 1;
@@ -25,6 +26,11 @@
 	let users: User[] = $state([]);
 
 	let selectedUser = $derived($actionSettings.user_id ?? "");
+	let savedNick = $state("");
+	let displayNick = $derived(
+		$actionSettings.user_nick || savedNick || selectedUser,
+	);
+
 	let selectedActionType: UserVolumeControlActionType = $derived(
 		$actionSettings.action_type ?? DEFAULT_ACTION_TYPE,
 	);
@@ -43,12 +49,9 @@
 
 		if (Array.isArray(payload.users)) {
 			users = payload.users;
-			if (
-				(!selectedUser || !users.some((c) => c.id === selectedUser)) &&
-				users.length > 0
-			) {
-				$actionSettings = { ...$actionSettings, user_id: users[0].id };
-			}
+		}
+		if (payload.saved_nick) {
+			savedNick = payload.saved_nick;
 		}
 	});
 
@@ -84,13 +87,16 @@
 				onchange={updateUser}
 				class="w-full"
 			>
-				{#if users.length === 0}
-					<option value="" disabled>No users found</option>
-				{:else}
-					{#each users as user}
-						<option value={user.id}>{user.nick}</option>
-					{/each}
+				<option value="">None / Select User</option>
+
+				<!-- If the selected user is currently offline, preserve their entry in the list -->
+				{#if selectedUser && !users.some((u) => u.id === selectedUser)}
+					<option value={selectedUser}>{displayNick} (Offline)</option>
 				{/if}
+
+				{#each users as user}
+					<option value={user.id}>{user.nick}</option>
+				{/each}
 			</select>
 		</div>
 	</div>

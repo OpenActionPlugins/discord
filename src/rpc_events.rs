@@ -51,14 +51,22 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 				}
 			}
 			ReturnedEvent::VoiceStateDelete(state) => {
-				if let Some(user) = &state.user {
-					user_voice_settings_map().write().await.remove(&user.id);
+				let Some(user) = &state.user else {
+					return;
+				};
 
-					for instance in
-						visible_instances(crate::actions::UserVolumeControlAction::UUID).await
-					{
-						let _ = instance.get_settings().await;
-					}
+				let current_user_id = current_user_id().read().await;
+
+				if current_user_id.as_ref() == Some(&user.id) {
+					user_voice_settings_map().write().await.clear();
+				} else {
+					user_voice_settings_map().write().await.remove(&user.id);
+				}
+
+				for instance in
+					visible_instances(crate::actions::UserVolumeControlAction::UUID).await
+				{
+					let _ = instance.get_settings().await;
 				}
 			}
 			ReturnedEvent::VideoStateUpdate(state) => {
@@ -127,6 +135,10 @@ async fn handle_select_voice_channel(channel_id: Option<String>) {
 	for instance in visible_instances(crate::actions::VoiceChannelAction::UUID).await {
 		let _ = instance.get_settings().await;
 	}
+
+    for instance in visible_instances(crate::actions::UserVolumeControlAction::UUID).await {
+        let _ = instance.get_settings().await;
+    }
 }
 
 async fn handle_notification(notification: NotificationCreateData) {
