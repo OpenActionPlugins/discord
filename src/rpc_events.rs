@@ -132,7 +132,7 @@ async fn handle_select_voice_channel(channel_id: Option<String>) {
 async fn handle_notification(notification: NotificationCreateData) {
 	crate::cache::add_notification_to_cache(notification).await;
 	for instance in visible_instances(crate::actions::NotificationsAction::UUID).await {
-		let _ = crate::actions::notifications::update_title(&instance).await;
+		let _ = crate::actions::notifications::update_image(&instance).await;
 	}
 }
 
