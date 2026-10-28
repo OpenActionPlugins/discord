@@ -94,6 +94,9 @@
 			"Icon": "actions/volumeControl",
 			"Tooltip": "Control the volume levels of audio input and output devices",
 			"Controllers": ["Keypad", "Encoder"],
+			"Encoder": {
+        "layout": "$B1"
+      },
 			"PropertyInspectorPath": "pi/volumecontrol.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/volumeControl" }]
