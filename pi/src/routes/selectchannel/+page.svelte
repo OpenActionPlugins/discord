@@ -31,24 +31,20 @@
 		if (Array.isArray(payload.guilds)) {
 			guilds = payload.guilds;
 			loadingGuilds = false;
-			if (
-				(!selectedGuild || !guilds.some((g) => g.id === selectedGuild)) &&
-				guilds.length > 0
-			) {
+			if (!selectedGuild && guilds.length > 0) {
 				$actionSettings = { ...$actionSettings, guild_id: guilds[0].id };
 			}
 
-			loadingChannels = true;
-			sendToPlugin({ action: "request_channels", guild_id: selectedGuild });
+			if (selectedGuild) {
+				loadingChannels = true;
+				sendToPlugin({ action: "request_channels", guild_id: selectedGuild });
+			}
 		}
 
 		if (Array.isArray(payload.channels)) {
 			channels = payload.channels;
 			loadingChannels = false;
-			if (
-				(!selectedChannel || !channels.some((c) => c.id === selectedChannel)) &&
-				channels.length > 0
-			) {
+			if (!selectedChannel && channels.length > 0) {
 				$actionSettings = { ...$actionSettings, channel_id: channels[0].id };
 			}
 		}
@@ -84,6 +80,9 @@
 					<option value="" disabled>No servers available</option>
 				{:else}
 					<option value="" disabled>Select a server</option>
+					{#if selectedGuild && !guilds.some((g) => g.id === selectedGuild)}
+						<option value={selectedGuild}>Unavailable server</option>
+					{/if}
 					{#each guilds as guild}
 						<option value={guild.id}>{guild.name}</option>
 					{/each}
@@ -104,10 +103,13 @@
 			>
 				{#if !selectedGuild}
 					<option value="" disabled>Select a server first</option>
-				{:else if channels.length === 0}
+				{:else if channels.length === 0 && !selectedChannel}
 					<option value="" disabled>No channels available</option>
 				{:else}
 					<option value="" disabled>Select a channel</option>
+					{#if selectedChannel && !channels.some((c) => c.id === selectedChannel)}
+						<option value={selectedChannel}>Unavailable channel</option>
+					{/if}
 					{#each channels as channel}
 						<option value={channel.id}>{channel.name}</option>
 					{/each}
