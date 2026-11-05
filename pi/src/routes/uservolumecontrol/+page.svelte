@@ -46,10 +46,10 @@
 
 		if (Array.isArray(payload.users)) {
 			users = payload.users;
-			if (
-				(!selectedUser || !users.some((c) => c.id === selectedUser)) &&
-				users.length > 0
-			) {
+			// Only pick a default when nothing is selected yet: the list can be partial (e.g.
+			// voice states still arriving) or not include the saved user right now (they left
+			// the call), and that must not overwrite the user's choice.
+			if (!selectedUser && users.length > 0) {
 				$actionSettings = { ...$actionSettings, user_id: users[0].id };
 			}
 		}
@@ -101,7 +101,7 @@
 				type="button"
 				class="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-neutral-600 bg-neutral-700 px-3 py-2 text-left text-sm text-neutral-300 outline-hidden"
 				onclick={() => (userDropdownOpen = !userDropdownOpen)}
-				disabled={users.length === 0}
+				disabled={users.length === 0 && !selectedUser}
 			>
 				{#if selectedUserObj}
 					<span
@@ -115,6 +115,8 @@
 						/>
 					</span>
 					<span class="truncate">{selectedUserObj.nick}</span>
+				{:else if selectedUser}
+					<span class="truncate text-neutral-400">User not in this call</span>
 				{:else}
 					<span>No users found</span>
 				{/if}
