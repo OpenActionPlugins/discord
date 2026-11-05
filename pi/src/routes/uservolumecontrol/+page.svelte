@@ -43,10 +43,10 @@
 
 		if (Array.isArray(payload.users)) {
 			users = payload.users;
-			if (
-				(!selectedUser || !users.some((c) => c.id === selectedUser)) &&
-				users.length > 0
-			) {
+			// Only pick a default when nothing is selected yet: the list can be partial (e.g.
+			// voice states still arriving) or not include the saved user right now (they left
+			// the call), and that must not overwrite the user's choice.
+			if (!selectedUser && users.length > 0) {
 				$actionSettings = { ...$actionSettings, user_id: users[0].id };
 			}
 		}
@@ -84,9 +84,12 @@
 				onchange={updateUser}
 				class="w-full"
 			>
-				{#if users.length === 0}
+				{#if users.length === 0 && !selectedUser}
 					<option value="" disabled>No users found</option>
 				{:else}
+					{#if selectedUser && !users.some((u) => u.id === selectedUser)}
+						<option value={selectedUser}>User not in this call</option>
+					{/if}
 					{#each users as user}
 						<option value={user.id}>{user.nick}</option>
 					{/each}
