@@ -174,6 +174,8 @@ async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::Vo
 		});
 	}
 
+	crate::actions::voice_settings::volume_control::refresh_instances().await;
+
 	for instance in visible_instances(crate::actions::SetAudioDeviceAction::UUID).await {
 		let _ = crate::actions::voice_settings::set_audio_device::send_available_devices_to_pi(
 			&instance,
