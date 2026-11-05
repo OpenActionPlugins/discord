@@ -1,6 +1,7 @@
 mod actions;
 mod cache;
 mod client;
+mod image_utils;
 mod oauth;
 mod rpc_events;
 

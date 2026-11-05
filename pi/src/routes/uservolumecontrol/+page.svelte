@@ -12,6 +12,7 @@
 	interface User {
 		id: string;
 		nick: string;
+		avatar: string;
 	}
 
 	const MIN_STEP_SIZE = 1;
@@ -23,8 +24,10 @@
 	const DEFAULT_ACTION_TYPE: UserVolumeControlActionType = "Increase";
 
 	let users: User[] = $state([]);
+	let userDropdownOpen = $state(false);
 
 	let selectedUser = $derived($actionSettings.user_id ?? "");
+	let selectedUserObj = $derived(users.find((user) => user.id === selectedUser));
 	let selectedActionType: UserVolumeControlActionType = $derived(
 		$actionSettings.action_type ?? DEFAULT_ACTION_TYPE,
 	);
@@ -52,9 +55,22 @@
 		}
 	});
 
-	function updateUser(event: Event) {
-		const user_id = (event.target as HTMLSelectElement).value;
-		$actionSettings = { ...$actionSettings, user_id };
+	function selectUser(user: User) {
+		$actionSettings = { ...$actionSettings, user_id: user.id };
+		userDropdownOpen = false;
+	}
+
+	function handleWindowClick(event: MouseEvent) {
+		if (
+			userDropdownOpen &&
+			!(event.target as HTMLElement).closest(".user-dropdown")
+		) {
+			userDropdownOpen = false;
+		}
+	}
+
+	function handleAvatarError(event: Event) {
+		(event.target as HTMLElement).remove();
 	}
 
 	function updateActionType(event: Event) {
@@ -74,24 +90,66 @@
 	}
 </script>
 
+<svelte:window onclick={handleWindowClick} />
+
 <div class="space-y-4 text-neutral-200">
 	<div class="grid grid-cols-[250px_1fr] items-center">
 		<label for="user" class="text-sm">Target</label>
-		<div class="select-wrapper">
-			<select
+		<div class="user-dropdown relative">
+			<button
 				id="user"
-				value={selectedUser}
-				onchange={updateUser}
-				class="w-full"
+				type="button"
+				class="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-neutral-600 bg-neutral-700 px-3 py-2 text-left text-sm text-neutral-300 outline-hidden"
+				onclick={() => (userDropdownOpen = !userDropdownOpen)}
+				disabled={users.length === 0}
 			>
-				{#if users.length === 0}
-					<option value="" disabled>No users found</option>
+				{#if selectedUserObj}
+					<span
+						class="h-5 w-5 shrink-0 overflow-hidden rounded-full bg-neutral-600"
+					>
+						<img
+							src={selectedUserObj.avatar}
+							alt=""
+							class="h-full w-full object-cover"
+							onerror={handleAvatarError}
+						/>
+					</span>
+					<span class="truncate">{selectedUserObj.nick}</span>
 				{:else}
-					{#each users as user}
-						<option value={user.id}>{user.nick}</option>
-					{/each}
+					<span>No users found</span>
 				{/if}
-			</select>
+				<span
+					class="ml-auto h-2 w-2 shrink-0 rotate-45 border-r-2 border-b-2 border-neutral-400"
+				></span>
+			</button>
+
+			{#if userDropdownOpen && users.length > 0}
+				<ul
+					class="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-neutral-600 bg-neutral-700 shadow-lg"
+				>
+					{#each users as user}
+						<li>
+							<button
+								type="button"
+								class="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-600"
+								onclick={() => selectUser(user)}
+							>
+								<span
+									class="h-5 w-5 shrink-0 overflow-hidden rounded-full bg-neutral-600"
+								>
+									<img
+										src={user.avatar}
+										alt=""
+										class="h-full w-full object-cover"
+										onerror={handleAvatarError}
+									/>
+								</span>
+								<span class="truncate">{user.nick}</span>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 		</div>
 	</div>
 

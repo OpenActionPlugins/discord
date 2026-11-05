@@ -1,3 +1,5 @@
+use crate::image_utils;
+
 use std::{collections::HashMap, sync::OnceLock};
 
 use discord_ipc_rust::models::{
@@ -5,6 +7,7 @@ use discord_ipc_rust::models::{
 	send::commands::SetVoiceSettingsArgs,
 	shared::voice::{VoiceAvailableDevice, VoiceSettingsInput, VoiceSettingsOutput},
 };
+use image::Rgba;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
@@ -84,26 +87,64 @@ impl From<AudioDeviceWrapper> for SetVoiceSettingsArgs {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct UserVoiceSettings {
 	pub nick: String,
+	pub avatar: Option<String>,
 	pub volume: f32,
 	pub mute: bool,
 	pub self_mute: bool,
 	pub self_deaf: bool,
 	pub server_mute: bool,
 	pub server_deaf: bool,
+	pub speaking: bool,
 }
 
 impl From<VoiceStateData> for UserVoiceSettings {
 	fn from(value: VoiceStateData) -> Self {
 		Self {
 			nick: value.nick,
+			avatar: value.user.and_then(|user| user.avatar),
 			volume: value.volume,
 			mute: value.mute,
 			self_mute: value.state.self_mute,
 			self_deaf: value.state.self_deaf,
 			server_mute: value.state.mute,
 			server_deaf: value.state.deaf,
+			// Not part of a voice state payload; callers should carry the previous value over.
+			speaking: false,
 		}
 	}
+}
+
+// Builds a Discord CDN URL for a user's avatar, falling back to their default avatar
+// (computed from their ID) when they have no custom avatar set. Always requests a static PNG,
+// since we decode and recomposite the image locally (see `avatar_data_uri`) regardless of
+// whether the source avatar is animated.
+pub fn avatar_url(user_id: &str, avatar_hash: Option<&str>) -> String {
+	match avatar_hash {
+		Some(hash) => format!("https://cdn.discordapp.com/avatars/{user_id}/{hash}.png?size=64"),
+		None => {
+			let index = user_id.parse::<u64>().map(|id| (id >> 22) % 6).unwrap_or(0);
+			format!("https://cdn.discordapp.com/embed/avatars/{index}.png")
+		}
+	}
+}
+
+const AVATAR_SIZE: u32 = 96;
+const SPEAKING_BORDER_WIDTH: f32 = 6.0;
+const SPEAKING_BORDER_COLOR: Rgba<u8> = Rgba([87, 242, 135, 255]); // Discord "green"
+
+// Downloads (or reuses a cached copy of) a user's avatar, crops it to a circle (with a green
+// ring when they're currently speaking), and returns it as a base64 data URI suitable for
+// SetImage/SetFeedback.
+pub async fn avatar_data_uri(
+	user_id: &str,
+	avatar_hash: Option<&str>,
+	speaking: bool,
+) -> Option<String> {
+	let url = avatar_url(user_id, avatar_hash);
+	let bytes = image_utils::fetch_bytes(&url).await?;
+	let border = speaking.then_some((SPEAKING_BORDER_WIDTH, SPEAKING_BORDER_COLOR));
+	let png_bytes = image_utils::circular_png(&bytes, AVATAR_SIZE, border)?;
+	Some(image_utils::to_data_uri(&png_bytes))
 }
 
 pub fn audio_input_settings() -> &'static RwLock<Option<AudioDeviceWrapper>> {

@@ -1,4 +1,4 @@
-use super::audio_device_utils::AudioDeviceType;
+use super::audio_device_utils::{AudioDeviceType, avatar_data_uri, avatar_url};
 
 use crate::actions::audio_device_utils::user_voice_settings_map;
 use crate::client::discord_client;
@@ -6,6 +6,7 @@ use crate::client::discord_client;
 use discord_ipc_rust::models::send::commands::{SentCommand, SetUserVoiceSettingsArgs};
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 #[derive(Serialize, Deserialize, Default)]
 pub enum UserVolumeControlActionType {
@@ -105,6 +106,7 @@ async fn send_users_to_pi(instance: &Instance) -> OpenActionResult<()> {
 	struct MinimalUser {
 		pub id: String,
 		pub nick: String,
+		pub avatar: String,
 	}
 
 	#[derive(Serialize)]
@@ -119,6 +121,7 @@ async fn send_users_to_pi(instance: &Instance) -> OpenActionResult<()> {
 		.map(|(user_id, settings)| MinimalUser {
 			id: user_id.clone(),
 			nick: settings.nick.clone(),
+			avatar: avatar_url(user_id, settings.avatar.as_deref()),
 		})
 		.collect();
 
@@ -128,6 +131,68 @@ async fn send_users_to_pi(instance: &Instance) -> OpenActionResult<()> {
 
 	Ok(())
 }
+
+// Renders the target user's avatar, name and current volume onto the physical key/dial:
+// a title overlaid on the avatar image for Keypad instances, or the native "$B1" indicator
+// layout (icon + title + volume bar) for Encoder (Stream Deck+ dial) instances. The layout
+// itself is declared as this action's default in the manifest and is never re-sent from here:
+// calling SetFeedbackLayout on every update would reset the dial's contents to blank before
+// this function repopulates them, causing a visible flicker back to placeholder text/icons.
+async fn update_display(instance: &Instance, user_id: &str) -> OpenActionResult<()> {
+	let Some(user_settings) = user_voice_settings_map().read().await.get(user_id).cloned() else {
+		return Ok(());
+	};
+
+	let percent = AudioDeviceType::Output
+		.to_linear(user_settings.volume)
+		.round() as i64;
+	let value_text = if user_settings.mute {
+		"Muted".to_owned()
+	} else {
+		format!("{percent}%")
+	};
+	// If the avatar couldn't be fetched (e.g. a transient network error), leave whatever image
+	// is already displayed alone rather than clearing it back to the action's default icon.
+	let icon = avatar_data_uri(
+		user_id,
+		user_settings.avatar.as_deref(),
+		user_settings.speaking,
+	)
+	.await;
+
+	if instance.controller == "Encoder" {
+		let bar_fill_color = if percent > 100 { "red" } else { "white" };
+
+		let mut feedback = json!({
+			"title": user_settings.nick,
+			"value": value_text,
+			"indicator": { "value": percent.clamp(0, 100), "bar_fill_c": bar_fill_color },
+		});
+		if let Some(icon) = icon {
+			feedback["icon"] = json!(icon);
+		}
+
+		if let Err(e) = instance.set_feedback(&feedback).await {
+			log::error!("Failed to set feedback for user volume control: {}", e);
+		}
+	} else {
+		if let Some(icon) = icon
+			&& let Err(e) = instance.set_image(Some(icon), None).await
+		{
+			log::error!("Failed to set image for user volume control: {}", e);
+		}
+
+		if let Err(e) = instance
+			.set_title(Some(format!("{}\n{value_text}", user_settings.nick)), None)
+			.await
+		{
+			log::error!("Failed to set title for user volume control: {}", e);
+		}
+	}
+
+	Ok(())
+}
+
 pub struct UserVolumeControlAction;
 #[async_trait]
 impl Action for UserVolumeControlAction {
@@ -137,17 +202,25 @@ impl Action for UserVolumeControlAction {
 	async fn will_appear(
 		&self,
 		instance: &Instance,
-		_settings: &Self::Settings,
+		settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		send_users_to_pi(instance).await
+		send_users_to_pi(instance).await?;
+		if let Some(user_id) = settings.user_id.as_ref() {
+			update_display(instance, user_id).await?;
+		}
+		Ok(())
 	}
 
 	async fn did_receive_settings(
 		&self,
 		instance: &Instance,
-		_settings: &Self::Settings,
+		settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		send_users_to_pi(instance).await
+		send_users_to_pi(instance).await?;
+		if let Some(user_id) = settings.user_id.as_ref() {
+			update_display(instance, user_id).await?;
+		}
+		Ok(())
 	}
 
 	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {

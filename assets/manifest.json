@@ -104,6 +104,7 @@
 			"Icon": "actions/userVolumeControl",
 			"Tooltip": "Control the output volume level of another user",
 			"Controllers": ["Keypad", "Encoder"],
+			"Encoder": { "layout": "$B1" },
 			"PropertyInspectorPath": "pi/uservolumecontrol.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/userVolumeControl" }]
