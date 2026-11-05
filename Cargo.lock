@@ -792,6 +792,7 @@ dependencies = [
 name = "oadiscord"
 version = "0.0.0"
 dependencies = [
+ "base64",
  "discord-ipc-rust",
  "log",
  "openaction",
